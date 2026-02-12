@@ -19,6 +19,18 @@
 
 namespace {
 
+static void setLastErrorIfEmptyWithPrefix(const char* prefixUtf8, const char* detailUtf8) {
+    const char* lastError = g4f_last_error();
+    if (lastError && lastError[0]) return;
+    g4f_set_last_errorf("%s: %s", prefixUtf8, detailUtf8);
+}
+
+static void setLastHresultErrorIfEmptyWithPrefix(const char* prefixUtf8, const char* detailUtf8, HRESULT hr) {
+    const char* lastError = g4f_last_error();
+    if (lastError && lastError[0]) return;
+    g4f_set_last_errorf("%s: %s (hr=0x%08lX)", prefixUtf8, detailUtf8, (unsigned long)hr);
+}
+
 static float clamp01(float v) {
     if (v < 0.0f) return 0.0f;
     if (v > 1.0f) return 1.0f;
@@ -102,6 +114,7 @@ static HRESULT compileHlsl(
     const char* source,
     const char* entryPoint,
     const char* target,
+    const char* contextUtf8,
     ID3DBlob** outBlob
 ) {
     UINT flags = D3DCOMPILE_ENABLE_STRICTNESS;
@@ -113,8 +126,17 @@ static HRESULT compileHlsl(
 
     ID3DBlob* errors = nullptr;
     HRESULT hr = D3DCompile(source, std::strlen(source), nullptr, nullptr, nullptr, entryPoint, target, flags, 0, outBlob, &errors);
-    if (FAILED(hr) && errors) {
-        OutputDebugStringA((const char*)errors->GetBufferPointer());
+    if (FAILED(hr)) {
+        const char* errorText = nullptr;
+        if (errors && errors->GetBufferPointer() && errors->GetBufferSize() > 0) {
+            errorText = (const char*)errors->GetBufferPointer();
+        }
+        if (errorText && errorText[0]) {
+            setLastErrorIfEmptyWithPrefix(contextUtf8, errorText);
+            OutputDebugStringA(errorText);
+        } else {
+            setLastHresultErrorIfEmptyWithPrefix(contextUtf8, "D3DCompile failed", hr);
+        }
     }
     if (errors) errors->Release();
     return hr;
@@ -139,7 +161,7 @@ struct CbMaterial {
 
 } // namespace
 
-static bool gfxCreateTargets(g4f_gfx* gfx, int w, int h) {
+static bool gfxCreateTargets(g4f_gfx* gfx, int w, int h, const char* contextUtf8) {
     if (!gfx || !gfx->swapChain || !gfx->device) return false;
 
     safeRelease((IUnknown**)&gfx->rtv);
@@ -147,15 +169,26 @@ static bool gfxCreateTargets(g4f_gfx* gfx, int w, int h) {
     safeRelease((IUnknown**)&gfx->depthTex);
 
     HRESULT hr = gfx->swapChain->ResizeBuffers(0, (UINT)w, (UINT)h, DXGI_FORMAT_UNKNOWN, 0);
-    if (FAILED(hr)) return false;
+    if (FAILED(hr)) {
+        setLastHresultErrorIfEmptyWithPrefix(contextUtf8, "swapChain->ResizeBuffers failed", hr);
+        return false;
+    }
 
     ID3D11Texture2D* backBuffer = nullptr;
     hr = gfx->swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&backBuffer);
-    if (FAILED(hr) || !backBuffer) return false;
+    if (FAILED(hr) || !backBuffer) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix(contextUtf8, "swapChain->GetBuffer failed", hr);
+        else setLastErrorIfEmptyWithPrefix(contextUtf8, "swapChain->GetBuffer returned null");
+        return false;
+    }
 
     hr = gfx->device->CreateRenderTargetView(backBuffer, nullptr, &gfx->rtv);
     backBuffer->Release();
-    if (FAILED(hr) || !gfx->rtv) return false;
+    if (FAILED(hr) || !gfx->rtv) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix(contextUtf8, "device->CreateRenderTargetView failed", hr);
+        else setLastErrorIfEmptyWithPrefix(contextUtf8, "device->CreateRenderTargetView returned null");
+        return false;
+    }
 
     D3D11_TEXTURE2D_DESC depthDesc{};
     depthDesc.Width = (UINT)w;
@@ -168,10 +201,18 @@ static bool gfxCreateTargets(g4f_gfx* gfx, int w, int h) {
     depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
 
     hr = gfx->device->CreateTexture2D(&depthDesc, nullptr, &gfx->depthTex);
-    if (FAILED(hr) || !gfx->depthTex) return false;
+    if (FAILED(hr) || !gfx->depthTex) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix(contextUtf8, "device->CreateTexture2D(depth) failed", hr);
+        else setLastErrorIfEmptyWithPrefix(contextUtf8, "device->CreateTexture2D(depth) returned null");
+        return false;
+    }
 
     hr = gfx->device->CreateDepthStencilView(gfx->depthTex, nullptr, &gfx->dsv);
-    if (FAILED(hr) || !gfx->dsv) return false;
+    if (FAILED(hr) || !gfx->dsv) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix(contextUtf8, "device->CreateDepthStencilView failed", hr);
+        else setLastErrorIfEmptyWithPrefix(contextUtf8, "device->CreateDepthStencilView returned null");
+        return false;
+    }
 
     gfx->cachedW = w;
     gfx->cachedH = h;
@@ -179,14 +220,14 @@ static bool gfxCreateTargets(g4f_gfx* gfx, int w, int h) {
     return true;
 }
 
-static bool gfxEnsureSize(g4f_gfx* gfx) {
+static bool gfxEnsureSize(g4f_gfx* gfx, const char* contextUtf8) {
     if (!gfx || !gfx->window) return false;
     int w = 0, h = 0;
     g4f_window_get_size(gfx->window, &w, &h);
     w = (w <= 0) ? 1 : w;
     h = (h <= 0) ? 1 : h;
     if (w == gfx->cachedW && h == gfx->cachedH && gfx->rtv && gfx->dsv) return true;
-    return gfxCreateTargets(gfx, w, h);
+    return gfxCreateTargets(gfx, w, h, contextUtf8);
 }
 
 static bool gfxCreateShadersAndCube(g4f_gfx* gfx) {
@@ -201,20 +242,29 @@ PSIn VSMain(VSIn i){
   return o;
 }
 float4 PSMain(PSIn i) : SV_Target { return i.col; }
-)";
+    )";
 
     ID3DBlob* vsBlob = nullptr;
     ID3DBlob* psBlob = nullptr;
-    HRESULT hr = compileHlsl(kShader, "VSMain", "vs_5_0", &vsBlob);
+    HRESULT hr = compileHlsl(kShader, "VSMain", "vs_5_0", "g4f_gfx_create: compile VSMain (debug cube)", &vsBlob);
     if (FAILED(hr) || !vsBlob) return false;
-    hr = compileHlsl(kShader, "PSMain", "ps_5_0", &psBlob);
+    hr = compileHlsl(kShader, "PSMain", "ps_5_0", "g4f_gfx_create: compile PSMain (debug cube)", &psBlob);
     if (FAILED(hr) || !psBlob) { vsBlob->Release(); return false; }
 
     hr = gfx->device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &gfx->vs);
-    if (FAILED(hr)) { vsBlob->Release(); psBlob->Release(); return false; }
+    if (FAILED(hr)) {
+        setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateVertexShader (debug cube) failed", hr);
+        vsBlob->Release();
+        psBlob->Release();
+        return false;
+    }
     hr = gfx->device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &gfx->ps);
     psBlob->Release();
-    if (FAILED(hr)) { vsBlob->Release(); return false; }
+    if (FAILED(hr)) {
+        setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreatePixelShader (debug cube) failed", hr);
+        vsBlob->Release();
+        return false;
+    }
 
     D3D11_INPUT_ELEMENT_DESC il[] = {
         {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
@@ -222,7 +272,10 @@ float4 PSMain(PSIn i) : SV_Target { return i.col; }
     };
     hr = gfx->device->CreateInputLayout(il, 2, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &gfx->inputLayout);
     vsBlob->Release();
-    if (FAILED(hr)) return false;
+    if (FAILED(hr)) {
+        setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateInputLayout (debug cube) failed", hr);
+        return false;
+    }
 
     // Cube (8 verts, 12 triangles).
     const Vertex verts[] = {
@@ -246,7 +299,11 @@ float4 PSMain(PSIn i) : SV_Target { return i.col; }
     D3D11_SUBRESOURCE_DATA vbData{};
     vbData.pSysMem = verts;
     hr = gfx->device->CreateBuffer(&vbDesc, &vbData, &gfx->vb);
-    if (FAILED(hr) || !gfx->vb) return false;
+    if (FAILED(hr) || !gfx->vb) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateBuffer(vb) failed", hr);
+        else setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateBuffer(vb) returned null");
+        return false;
+    }
 
     D3D11_BUFFER_DESC ibDesc{};
     ibDesc.ByteWidth = (UINT)sizeof(indices);
@@ -255,14 +312,22 @@ float4 PSMain(PSIn i) : SV_Target { return i.col; }
     D3D11_SUBRESOURCE_DATA ibData{};
     ibData.pSysMem = indices;
     hr = gfx->device->CreateBuffer(&ibDesc, &ibData, &gfx->ib);
-    if (FAILED(hr) || !gfx->ib) return false;
+    if (FAILED(hr) || !gfx->ib) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateBuffer(ib) failed", hr);
+        else setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateBuffer(ib) returned null");
+        return false;
+    }
 
     D3D11_BUFFER_DESC cbDesc{};
     cbDesc.ByteWidth = (UINT)sizeof(g4f_mat4);
     cbDesc.Usage = D3D11_USAGE_DEFAULT;
     cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     hr = gfx->device->CreateBuffer(&cbDesc, nullptr, &gfx->cbMvp);
-    if (FAILED(hr) || !gfx->cbMvp) return false;
+    if (FAILED(hr) || !gfx->cbMvp) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateBuffer(cbMvp) failed", hr);
+        else setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateBuffer(cbMvp) returned null");
+        return false;
+    }
 
     return true;
 }
@@ -276,15 +341,27 @@ static bool gfxCreateDefaultStates(g4f_gfx* gfx) {
     rs.FrontCounterClockwise = FALSE;
     rs.DepthClipEnable = TRUE;
     HRESULT hr = gfx->device->CreateRasterizerState(&rs, &gfx->rsCullBack);
-    if (FAILED(hr) || !gfx->rsCullBack) return false;
+    if (FAILED(hr) || !gfx->rsCullBack) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateRasterizerState(cullBack) failed", hr);
+        else setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateRasterizerState(cullBack) returned null");
+        return false;
+    }
 
     rs.CullMode = D3D11_CULL_NONE;
     hr = gfx->device->CreateRasterizerState(&rs, &gfx->rsCullNone);
-    if (FAILED(hr) || !gfx->rsCullNone) return false;
+    if (FAILED(hr) || !gfx->rsCullNone) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateRasterizerState(cullNone) failed", hr);
+        else setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateRasterizerState(cullNone) returned null");
+        return false;
+    }
 
     rs.CullMode = D3D11_CULL_FRONT;
     hr = gfx->device->CreateRasterizerState(&rs, &gfx->rsCullFront);
-    if (FAILED(hr) || !gfx->rsCullFront) return false;
+    if (FAILED(hr) || !gfx->rsCullFront) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateRasterizerState(cullFront) failed", hr);
+        else setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateRasterizerState(cullFront) returned null");
+        return false;
+    }
 
     D3D11_DEPTH_STENCIL_DESC ds{};
     ds.DepthEnable = TRUE;
@@ -292,11 +369,19 @@ static bool gfxCreateDefaultStates(g4f_gfx* gfx) {
     ds.DepthFunc = D3D11_COMPARISON_LESS;
     ds.StencilEnable = FALSE;
     hr = gfx->device->CreateDepthStencilState(&ds, &gfx->dsDepthLess);
-    if (FAILED(hr) || !gfx->dsDepthLess) return false;
+    if (FAILED(hr) || !gfx->dsDepthLess) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateDepthStencilState(depthLess) failed", hr);
+        else setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateDepthStencilState(depthLess) returned null");
+        return false;
+    }
 
     ds.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
     hr = gfx->device->CreateDepthStencilState(&ds, &gfx->dsDepthLessNoWrite);
-    if (FAILED(hr) || !gfx->dsDepthLessNoWrite) return false;
+    if (FAILED(hr) || !gfx->dsDepthLessNoWrite) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateDepthStencilState(depthLessNoWrite) failed", hr);
+        else setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateDepthStencilState(depthLessNoWrite) returned null");
+        return false;
+    }
 
     D3D11_DEPTH_STENCIL_DESC dsOff{};
     dsOff.DepthEnable = FALSE;
@@ -304,7 +389,11 @@ static bool gfxCreateDefaultStates(g4f_gfx* gfx) {
     dsOff.DepthFunc = D3D11_COMPARISON_ALWAYS;
     dsOff.StencilEnable = FALSE;
     hr = gfx->device->CreateDepthStencilState(&dsOff, &gfx->dsDisabled);
-    if (FAILED(hr) || !gfx->dsDisabled) return false;
+    if (FAILED(hr) || !gfx->dsDisabled) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateDepthStencilState(disabled) failed", hr);
+        else setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateDepthStencilState(disabled) returned null");
+        return false;
+    }
 
     D3D11_BLEND_DESC bs{};
     bs.AlphaToCoverageEnable = FALSE;
@@ -314,7 +403,11 @@ static bool gfxCreateDefaultStates(g4f_gfx* gfx) {
     rt.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
     bs.RenderTarget[0] = rt;
     hr = gfx->device->CreateBlendState(&bs, &gfx->bsOpaque);
-    if (FAILED(hr) || !gfx->bsOpaque) return false;
+    if (FAILED(hr) || !gfx->bsOpaque) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateBlendState(opaque) failed", hr);
+        else setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateBlendState(opaque) returned null");
+        return false;
+    }
 
     D3D11_BLEND_DESC bsA{};
     bsA.AlphaToCoverageEnable = FALSE;
@@ -330,7 +423,11 @@ static bool gfxCreateDefaultStates(g4f_gfx* gfx) {
     rta.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
     bsA.RenderTarget[0] = rta;
     hr = gfx->device->CreateBlendState(&bsA, &gfx->bsAlpha);
-    if (FAILED(hr) || !gfx->bsAlpha) return false;
+    if (FAILED(hr) || !gfx->bsAlpha) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateBlendState(alpha) failed", hr);
+        else setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateBlendState(alpha) returned null");
+        return false;
+    }
 
     return true;
 }
@@ -373,27 +470,41 @@ float4 PSLit(PSIn i) : SV_Target {
   float3 lit = base.rgb * (uAmbientColor.rgb + ndl * uLightColor.rgb);
   return float4(lit, base.a);
 }
-)";
+    )";
 
     ID3DBlob* vsBlob = nullptr;
     ID3DBlob* psBlob = nullptr;
-    HRESULT hr = compileHlsl(kShader, "VSMain", "vs_5_0", &vsBlob);
+    HRESULT hr = compileHlsl(kShader, "VSMain", "vs_5_0", "g4f_gfx_create: compile VSMain (unlit)", &vsBlob);
     if (FAILED(hr) || !vsBlob) return false;
-    hr = compileHlsl(kShader, "PSUnlit", "ps_5_0", &psBlob);
+    hr = compileHlsl(kShader, "PSUnlit", "ps_5_0", "g4f_gfx_create: compile PSUnlit", &psBlob);
     if (FAILED(hr) || !psBlob) { vsBlob->Release(); return false; }
 
     hr = gfx->device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &gfx->vsUnlit);
-    if (FAILED(hr)) { vsBlob->Release(); psBlob->Release(); return false; }
+    if (FAILED(hr)) {
+        setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateVertexShader (unlit) failed", hr);
+        vsBlob->Release();
+        psBlob->Release();
+        return false;
+    }
     hr = gfx->device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &gfx->psUnlit);
     psBlob->Release();
-    if (FAILED(hr)) { vsBlob->Release(); return false; }
+    if (FAILED(hr)) {
+        setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreatePixelShader (unlit) failed", hr);
+        vsBlob->Release();
+        return false;
+    }
 
     ID3DBlob* psLitBlob = nullptr;
-    hr = compileHlsl(kShader, "PSLit", "ps_5_0", &psLitBlob);
+    hr = compileHlsl(kShader, "PSLit", "ps_5_0", "g4f_gfx_create: compile PSLit", &psLitBlob);
     if (FAILED(hr) || !psLitBlob) { vsBlob->Release(); return false; }
     hr = gfx->device->CreatePixelShader(psLitBlob->GetBufferPointer(), psLitBlob->GetBufferSize(), nullptr, &gfx->psLit);
     psLitBlob->Release();
-    if (FAILED(hr) || !gfx->psLit) { vsBlob->Release(); return false; }
+    if (FAILED(hr) || !gfx->psLit) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreatePixelShader (lit) failed", hr);
+        else setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreatePixelShader (lit) returned null");
+        vsBlob->Release();
+        return false;
+    }
 
     D3D11_INPUT_ELEMENT_DESC il[] = {
         {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
@@ -402,14 +513,22 @@ float4 PSLit(PSIn i) : SV_Target {
     };
     hr = gfx->device->CreateInputLayout(il, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &gfx->ilUnlit);
     vsBlob->Release();
-    if (FAILED(hr) || !gfx->ilUnlit) return false;
+    if (FAILED(hr) || !gfx->ilUnlit) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateInputLayout (unlit) failed", hr);
+        else setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateInputLayout (unlit) returned null");
+        return false;
+    }
 
     D3D11_BUFFER_DESC cbDesc{};
     cbDesc.ByteWidth = (UINT)sizeof(CbMaterial);
     cbDesc.Usage = D3D11_USAGE_DEFAULT;
     cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     hr = gfx->device->CreateBuffer(&cbDesc, nullptr, &gfx->cbUnlit);
-    if (FAILED(hr) || !gfx->cbUnlit) return false;
+    if (FAILED(hr) || !gfx->cbUnlit) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateBuffer(cbUnlit) failed", hr);
+        else setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateBuffer(cbUnlit) returned null");
+        return false;
+    }
 
     D3D11_SAMPLER_DESC samp{};
     samp.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
@@ -420,7 +539,11 @@ float4 PSLit(PSIn i) : SV_Target {
     samp.MinLOD = 0;
     samp.MaxLOD = D3D11_FLOAT32_MAX;
     hr = gfx->device->CreateSamplerState(&samp, &gfx->sampLinearClamp);
-    if (FAILED(hr) || !gfx->sampLinearClamp) return false;
+    if (FAILED(hr) || !gfx->sampLinearClamp) {
+        if (FAILED(hr)) setLastHresultErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateSamplerState failed", hr);
+        else setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "device->CreateSamplerState returned null");
+        return false;
+    }
 
     return true;
 }
@@ -470,26 +593,26 @@ g4f_gfx* g4f_gfx_create(g4f_window* window) {
         return nullptr;
     }
 
-    if (!gfxEnsureSize(gfx)) {
-        g4f_set_last_error("g4f_gfx_create: swapchain resize/targets failed");
+    if (!gfxEnsureSize(gfx, "g4f_gfx_create")) {
+        setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "swapchain resize/targets failed");
         g4f_gfx_destroy(gfx);
         return nullptr;
     }
 
     if (!gfxCreateShadersAndCube(gfx)) {
-        g4f_set_last_error("g4f_gfx_create: shader/bootstrap resources failed");
+        setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "shader/bootstrap resources failed");
         g4f_gfx_destroy(gfx);
         return nullptr;
     }
 
     if (!gfxCreateDefaultStates(gfx)) {
-        g4f_set_last_error("g4f_gfx_create: default state creation failed");
+        setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "default state creation failed");
         g4f_gfx_destroy(gfx);
         return nullptr;
     }
 
     if (!gfxCreateUnlitPipeline(gfx)) {
-        g4f_set_last_error("g4f_gfx_create: unlit pipeline creation failed");
+        setLastErrorIfEmptyWithPrefix("g4f_gfx_create", "unlit pipeline creation failed");
         g4f_gfx_destroy(gfx);
         return nullptr;
     }
@@ -530,7 +653,7 @@ void g4f_gfx_destroy(g4f_gfx* gfx) {
 
 void g4f_gfx_begin(g4f_gfx* gfx, uint32_t clearRgba) {
     if (!gfx || !gfx->ctx) return;
-    if (!gfxEnsureSize(gfx)) return;
+    if (!gfxEnsureSize(gfx, "g4f_gfx_begin")) return;
 
     float clear[4];
     rgbaU32ToFloat4(clearRgba, clear);
@@ -826,8 +949,8 @@ g4f_gfx_texture* g4f_gfx_texture_create_solid_rgba8(g4f_gfx* gfx, uint32_t rgba)
 }
 
 g4f_gfx_texture* g4f_gfx_texture_create_checker_rgba8(g4f_gfx* gfx, int width, int height, int cellSizePx, uint32_t rgbaA, uint32_t rgbaB) {
-    if (!gfx) return nullptr;
-    if (width <= 0 || height <= 0) return nullptr;
+    if (!gfx) { g4f_set_last_error("g4f_gfx_texture_create_checker_rgba8: invalid gfx"); return nullptr; }
+    if (width <= 0 || height <= 0) { g4f_set_last_error("g4f_gfx_texture_create_checker_rgba8: invalid size"); return nullptr; }
     int cell = (cellSizePx <= 0) ? 8 : cellSizePx;
     std::vector<uint32_t> pixels((size_t)width * (size_t)height);
     for (int y = 0; y < height; y++) {
