@@ -1,4 +1,5 @@
 #include "../include/g4f/g4f_ctx3d_ui.h"
+#include "g4f_error_internal.h"
 
 struct g4f_ctx3d_ui {
     g4f_ctx3d* ctx3d = nullptr;
@@ -7,11 +8,15 @@ struct g4f_ctx3d_ui {
 };
 
 g4f_ctx3d_ui* g4f_ctx3d_ui_create(const g4f_window_desc* windowDesc) {
-    if (!windowDesc) return nullptr;
+    if (!windowDesc) {
+        g4f_set_last_error("g4f_ctx3d_ui_create: windowDesc is null");
+        return nullptr;
+    }
     auto* ctx = new g4f_ctx3d_ui();
 
     ctx->ctx3d = g4f_ctx3d_create(windowDesc);
     if (!ctx->ctx3d) {
+        if (!g4f_last_error()[0]) g4f_set_last_error("g4f_ctx3d_ui_create: g4f_ctx3d_create failed");
         g4f_ctx3d_ui_destroy(ctx);
         return nullptr;
     }
@@ -19,12 +24,14 @@ g4f_ctx3d_ui* g4f_ctx3d_ui_create(const g4f_window_desc* windowDesc) {
     g4f_gfx* gfx = g4f_ctx3d_gfx(ctx->ctx3d);
     ctx->overlay = g4f_renderer_create_for_gfx(gfx);
     if (!ctx->overlay) {
+        if (!g4f_last_error()[0]) g4f_set_last_error("g4f_ctx3d_ui_create: g4f_renderer_create_for_gfx failed");
         g4f_ctx3d_ui_destroy(ctx);
         return nullptr;
     }
 
     ctx->ui = g4f_ui_create();
     if (!ctx->ui) {
+        if (!g4f_last_error()[0]) g4f_set_last_error("g4f_ctx3d_ui_create: g4f_ui_create failed");
         g4f_ctx3d_ui_destroy(ctx);
         return nullptr;
     }

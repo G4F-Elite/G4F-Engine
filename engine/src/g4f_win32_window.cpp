@@ -1,4 +1,5 @@
 #include "g4f_platform_win32.h"
+#include "g4f_error_internal.h"
 
 #include <algorithm>
 #include <cstring>
@@ -229,7 +230,12 @@ g4f_app* g4f_app_create(const g4f_app_desc* /*desc*/) {
     app->state.qpcFreq = (uint64_t)freq.QuadPart;
     app->state.qpcStart = g4f_qpc_now();
 
-    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    HRESULT coHr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    if (FAILED(coHr)) {
+        g4f_set_last_hresult_error("g4f_app_create: CoInitializeEx failed", coHr);
+        delete app;
+        return nullptr;
+    }
 
     WNDCLASSEXW wc{};
     wc.cbSize = sizeof(wc);
@@ -240,6 +246,12 @@ g4f_app* g4f_app_create(const g4f_app_desc* /*desc*/) {
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszClassName = L"G4FEngineWindow";
     app->state.wndClass = RegisterClassExW(&wc);
+    if (!app->state.wndClass) {
+        g4f_set_last_win32_error("g4f_app_create: RegisterClassExW failed", (uint32_t)GetLastError());
+        CoUninitialize();
+        delete app;
+        return nullptr;
+    }
 
     return app;
 }
@@ -259,8 +271,14 @@ double g4f_time_seconds(const g4f_app* app) {
 }
 
 g4f_window* g4f_window_create(g4f_app* app, const g4f_window_desc* desc) {
-    if (!app || !desc) return nullptr;
-    if (!app->state.wndClass) return nullptr;
+    if (!app || !desc) {
+        g4f_set_last_error("g4f_window_create: app/desc is null");
+        return nullptr;
+    }
+    if (!app->state.wndClass) {
+        g4f_set_last_error("g4f_window_create: window class not registered");
+        return nullptr;
+    }
 
     auto* window = new g4f_window();
     window->app = app;
@@ -292,6 +310,7 @@ g4f_window* g4f_window_create(g4f_app* app, const g4f_window_desc* desc) {
     window->state.hwnd = hwnd;
 
     if (!hwnd) {
+        g4f_set_last_win32_error("g4f_window_create: CreateWindowExW failed", (uint32_t)GetLastError());
         delete window;
         return nullptr;
     }

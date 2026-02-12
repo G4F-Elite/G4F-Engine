@@ -1,4 +1,5 @@
 #include "g4f_platform_d3d11.h"
+#include "g4f_error_internal.h"
 
 #include "../include/g4f/g4f.h"
 
@@ -425,7 +426,10 @@ float4 PSLit(PSIn i) : SV_Target {
 }
 
 g4f_gfx* g4f_gfx_create(g4f_window* window) {
-    if (!window) return nullptr;
+    if (!window) {
+        g4f_set_last_error("g4f_gfx_create: window is null");
+        return nullptr;
+    }
     auto* gfx = new g4f_gfx();
     gfx->window = window;
 
@@ -461,26 +465,31 @@ g4f_gfx* g4f_gfx_create(g4f_window* window) {
         &gfx->ctx
     );
     if (FAILED(hr)) {
+        g4f_set_last_hresult_error("g4f_gfx_create: D3D11CreateDeviceAndSwapChain failed", hr);
         g4f_gfx_destroy(gfx);
         return nullptr;
     }
 
     if (!gfxEnsureSize(gfx)) {
+        g4f_set_last_error("g4f_gfx_create: swapchain resize/targets failed");
         g4f_gfx_destroy(gfx);
         return nullptr;
     }
 
     if (!gfxCreateShadersAndCube(gfx)) {
+        g4f_set_last_error("g4f_gfx_create: shader/bootstrap resources failed");
         g4f_gfx_destroy(gfx);
         return nullptr;
     }
 
     if (!gfxCreateDefaultStates(gfx)) {
+        g4f_set_last_error("g4f_gfx_create: default state creation failed");
         g4f_gfx_destroy(gfx);
         return nullptr;
     }
 
     if (!gfxCreateUnlitPipeline(gfx)) {
+        g4f_set_last_error("g4f_gfx_create: unlit pipeline creation failed");
         g4f_gfx_destroy(gfx);
         return nullptr;
     }
@@ -687,8 +696,8 @@ struct g4f_gfx_mesh {
 };
 
 g4f_gfx_texture* g4f_gfx_texture_create_rgba8(g4f_gfx* gfx, int width, int height, const void* rgbaPixels, int rowPitchBytes) {
-    if (!gfx || !gfx->device || !rgbaPixels) return nullptr;
-    if (width <= 0 || height <= 0) return nullptr;
+    if (!gfx || !gfx->device || !rgbaPixels) { g4f_set_last_error("g4f_gfx_texture_create_rgba8: invalid args"); return nullptr; }
+    if (width <= 0 || height <= 0) { g4f_set_last_error("g4f_gfx_texture_create_rgba8: invalid size"); return nullptr; }
     if (rowPitchBytes <= 0) rowPitchBytes = width * 4;
 
     auto* texture = new g4f_gfx_texture();
@@ -713,6 +722,7 @@ g4f_gfx_texture* g4f_gfx_texture_create_rgba8(g4f_gfx* gfx, int width, int heigh
 
     HRESULT hr = gfx->device->CreateTexture2D(&desc, &data, &texture->tex);
     if (FAILED(hr) || !texture->tex) {
+        g4f_set_last_hresult_error("g4f_gfx_texture_create_rgba8: CreateTexture2D failed", hr);
         g4f_gfx_texture_destroy(texture);
         return nullptr;
     }
@@ -725,6 +735,7 @@ g4f_gfx_texture* g4f_gfx_texture_create_rgba8(g4f_gfx* gfx, int width, int heigh
 
     hr = gfx->device->CreateShaderResourceView(texture->tex, &srvDesc, &texture->srv);
     if (FAILED(hr) || !texture->srv) {
+        g4f_set_last_hresult_error("g4f_gfx_texture_create_rgba8: CreateShaderResourceView failed", hr);
         g4f_gfx_texture_destroy(texture);
         return nullptr;
     }
@@ -733,8 +744,8 @@ g4f_gfx_texture* g4f_gfx_texture_create_rgba8(g4f_gfx* gfx, int width, int heigh
 }
 
 g4f_gfx_texture* g4f_gfx_texture_create_rgba8_dynamic(g4f_gfx* gfx, int width, int height) {
-    if (!gfx || !gfx->device) return nullptr;
-    if (width <= 0 || height <= 0) return nullptr;
+    if (!gfx || !gfx->device) { g4f_set_last_error("g4f_gfx_texture_create_rgba8_dynamic: invalid gfx"); return nullptr; }
+    if (width <= 0 || height <= 0) { g4f_set_last_error("g4f_gfx_texture_create_rgba8_dynamic: invalid size"); return nullptr; }
 
     auto* texture = new g4f_gfx_texture();
     texture->owner = gfx;
@@ -755,6 +766,7 @@ g4f_gfx_texture* g4f_gfx_texture_create_rgba8_dynamic(g4f_gfx* gfx, int width, i
 
     HRESULT hr = gfx->device->CreateTexture2D(&desc, nullptr, &texture->tex);
     if (FAILED(hr) || !texture->tex) {
+        g4f_set_last_hresult_error("g4f_gfx_texture_create_rgba8_dynamic: CreateTexture2D failed", hr);
         g4f_gfx_texture_destroy(texture);
         return nullptr;
     }
@@ -767,6 +779,7 @@ g4f_gfx_texture* g4f_gfx_texture_create_rgba8_dynamic(g4f_gfx* gfx, int width, i
 
     hr = gfx->device->CreateShaderResourceView(texture->tex, &srvDesc, &texture->srv);
     if (FAILED(hr) || !texture->srv) {
+        g4f_set_last_hresult_error("g4f_gfx_texture_create_rgba8_dynamic: CreateShaderResourceView failed", hr);
         g4f_gfx_texture_destroy(texture);
         return nullptr;
     }
@@ -842,7 +855,7 @@ void g4f_gfx_texture_get_size(const g4f_gfx_texture* texture, int* width, int* h
 }
 
 g4f_gfx_material* g4f_gfx_material_create_unlit(g4f_gfx* gfx, const g4f_gfx_material_unlit_desc* desc) {
-    if (!gfx) return nullptr;
+    if (!gfx) { g4f_set_last_error("g4f_gfx_material_create_unlit: gfx is null"); return nullptr; }
     auto* material = new g4f_gfx_material();
 
     uint32_t rgba = desc ? desc->tintRgba : g4f_rgba_u32(255, 255, 255, 255);
@@ -909,9 +922,9 @@ void g4f_gfx_material_set_cull(g4f_gfx_material* material, int cullMode) {
 }
 
 g4f_gfx_mesh* g4f_gfx_mesh_create_p3n3uv2(g4f_gfx* gfx, const g4f_gfx_vertex_p3n3uv2* vertices, int vertexCount, const uint16_t* indices, int indexCount) {
-    if (!gfx || !gfx->device) return nullptr;
-    if (!vertices || vertexCount <= 0) return nullptr;
-    if (!indices || indexCount <= 0) return nullptr;
+    if (!gfx || !gfx->device) { g4f_set_last_error("g4f_gfx_mesh_create_p3n3uv2: invalid gfx"); return nullptr; }
+    if (!vertices || vertexCount <= 0) { g4f_set_last_error("g4f_gfx_mesh_create_p3n3uv2: invalid vertices"); return nullptr; }
+    if (!indices || indexCount <= 0) { g4f_set_last_error("g4f_gfx_mesh_create_p3n3uv2: invalid indices"); return nullptr; }
 
     auto* mesh = new g4f_gfx_mesh();
     mesh->indexCount = (UINT)indexCount;
@@ -924,6 +937,7 @@ g4f_gfx_mesh* g4f_gfx_mesh_create_p3n3uv2(g4f_gfx* gfx, const g4f_gfx_vertex_p3n
     vbData.pSysMem = vertices;
     HRESULT hr = gfx->device->CreateBuffer(&vbDesc, &vbData, &mesh->vb);
     if (FAILED(hr) || !mesh->vb) {
+        g4f_set_last_hresult_error("g4f_gfx_mesh_create_p3n3uv2: CreateBuffer(vb) failed", hr);
         g4f_gfx_mesh_destroy(mesh);
         return nullptr;
     }
@@ -936,6 +950,7 @@ g4f_gfx_mesh* g4f_gfx_mesh_create_p3n3uv2(g4f_gfx* gfx, const g4f_gfx_vertex_p3n
     ibData.pSysMem = indices;
     hr = gfx->device->CreateBuffer(&ibDesc, &ibData, &mesh->ib);
     if (FAILED(hr) || !mesh->ib) {
+        g4f_set_last_hresult_error("g4f_gfx_mesh_create_p3n3uv2: CreateBuffer(ib) failed", hr);
         g4f_gfx_mesh_destroy(mesh);
         return nullptr;
     }

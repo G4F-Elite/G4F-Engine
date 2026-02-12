@@ -1,5 +1,6 @@
 #include "g4f_platform_win32.h"
 #include "g4f_platform_d3d11.h"
+#include "g4f_error_internal.h"
 
 #include <unordered_map>
 #include <string>
@@ -69,24 +70,27 @@ static HRESULT g4f_renderer_create_hwnd_target(g4f_renderer* renderer) {
 }
 
 g4f_renderer* g4f_renderer_create(g4f_window* window) {
-    if (!window) return nullptr;
+    if (!window) {
+        g4f_set_last_error("g4f_renderer_create: window is null");
+        return nullptr;
+    }
     auto* renderer = new g4f_renderer();
     renderer->window = window;
 
     HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &renderer->d2dFactory);
-    if (FAILED(hr)) { g4f_renderer_destroy(renderer); return nullptr; }
+    if (FAILED(hr)) { g4f_set_last_hresult_error("g4f_renderer_create: D2D1CreateFactory failed", hr); g4f_renderer_destroy(renderer); return nullptr; }
 
     hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), (IUnknown**)&renderer->dwriteFactory);
-    if (FAILED(hr)) { g4f_renderer_destroy(renderer); return nullptr; }
+    if (FAILED(hr)) { g4f_set_last_hresult_error("g4f_renderer_create: DWriteCreateFactory failed", hr); g4f_renderer_destroy(renderer); return nullptr; }
 
     hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&renderer->wicFactory));
-    if (FAILED(hr)) { g4f_renderer_destroy(renderer); return nullptr; }
+    if (FAILED(hr)) { g4f_set_last_hresult_error("g4f_renderer_create: WIC factory creation failed", hr); g4f_renderer_destroy(renderer); return nullptr; }
 
     hr = g4f_renderer_create_hwnd_target(renderer);
-    if (FAILED(hr)) { g4f_renderer_destroy(renderer); return nullptr; }
+    if (FAILED(hr)) { g4f_set_last_hresult_error("g4f_renderer_create: create HWND target failed", hr); g4f_renderer_destroy(renderer); return nullptr; }
 
     hr = renderer->hwndTarget->CreateSolidColorBrush(D2D1::ColorF(1, 1, 1, 1), &renderer->brush);
-    if (FAILED(hr)) { g4f_renderer_destroy(renderer); return nullptr; }
+    if (FAILED(hr)) { g4f_set_last_hresult_error("g4f_renderer_create: CreateSolidColorBrush failed", hr); g4f_renderer_destroy(renderer); return nullptr; }
 
     return renderer;
 }
@@ -279,30 +283,33 @@ void g4f_draw_text_wrapped(g4f_renderer* renderer, const char* text_utf8, g4f_re
 }
 
 g4f_bitmap* g4f_bitmap_load(g4f_renderer* renderer, const char* path_utf8) {
-    if (!renderer || !renderer->wicFactory || !path_utf8) return nullptr;
+    if (!renderer || !renderer->wicFactory || !path_utf8) {
+        g4f_set_last_error("g4f_bitmap_load: invalid args");
+        return nullptr;
+    }
     ID2D1RenderTarget* target = renderer->hwndTarget ? (ID2D1RenderTarget*)renderer->hwndTarget : (ID2D1RenderTarget*)renderer->gfxContext;
-    if (!target) return nullptr;
+    if (!target) { g4f_set_last_error("g4f_bitmap_load: renderer has no active target"); return nullptr; }
     std::wstring path = g4f_utf8_to_wide(path_utf8);
-    if (path.empty()) return nullptr;
+    if (path.empty()) { g4f_set_last_error("g4f_bitmap_load: empty path"); return nullptr; }
 
     IWICBitmapDecoder* decoder = nullptr;
     HRESULT hr = renderer->wicFactory->CreateDecoderFromFilename(path.c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnLoad, &decoder);
-    if (FAILED(hr) || !decoder) return nullptr;
+    if (FAILED(hr) || !decoder) { g4f_set_last_hresult_error("g4f_bitmap_load: CreateDecoderFromFilename failed", hr); return nullptr; }
 
     IWICBitmapFrameDecode* frame = nullptr;
     hr = decoder->GetFrame(0, &frame);
-    if (FAILED(hr) || !frame) { decoder->Release(); return nullptr; }
+    if (FAILED(hr) || !frame) { g4f_set_last_hresult_error("g4f_bitmap_load: decoder->GetFrame failed", hr); decoder->Release(); return nullptr; }
 
     IWICFormatConverter* converter = nullptr;
     hr = renderer->wicFactory->CreateFormatConverter(&converter);
-    if (FAILED(hr) || !converter) { frame->Release(); decoder->Release(); return nullptr; }
+    if (FAILED(hr) || !converter) { g4f_set_last_hresult_error("g4f_bitmap_load: CreateFormatConverter failed", hr); frame->Release(); decoder->Release(); return nullptr; }
 
     hr = converter->Initialize(frame, GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeMedianCut);
-    if (FAILED(hr)) { converter->Release(); frame->Release(); decoder->Release(); return nullptr; }
+    if (FAILED(hr)) { g4f_set_last_hresult_error("g4f_bitmap_load: converter->Initialize failed", hr); converter->Release(); frame->Release(); decoder->Release(); return nullptr; }
 
     ID2D1Bitmap* bitmap = nullptr;
     hr = target->CreateBitmapFromWicBitmap(converter, nullptr, &bitmap);
-    if (FAILED(hr) || !bitmap) { converter->Release(); frame->Release(); decoder->Release(); return nullptr; }
+    if (FAILED(hr) || !bitmap) { g4f_set_last_hresult_error("g4f_bitmap_load: CreateBitmapFromWicBitmap failed", hr); converter->Release(); frame->Release(); decoder->Release(); return nullptr; }
 
     UINT w = 0, h = 0;
     frame->GetSize(&w, &h);
@@ -319,11 +326,11 @@ g4f_bitmap* g4f_bitmap_load(g4f_renderer* renderer, const char* path_utf8) {
 }
 
 g4f_bitmap* g4f_bitmap_create_rgba8(g4f_renderer* renderer, int width, int height, const void* rgbaPixels, int rowPitchBytes) {
-    if (!renderer || !rgbaPixels) return nullptr;
-    if (width <= 0 || height <= 0) return nullptr;
+    if (!renderer || !rgbaPixels) { g4f_set_last_error("g4f_bitmap_create_rgba8: invalid args"); return nullptr; }
+    if (width <= 0 || height <= 0) { g4f_set_last_error("g4f_bitmap_create_rgba8: invalid size"); return nullptr; }
 
     ID2D1RenderTarget* target = g4f_active_target(renderer);
-    if (!target) return nullptr;
+    if (!target) { g4f_set_last_error("g4f_bitmap_create_rgba8: renderer has no active target"); return nullptr; }
 
     int srcPitch = rowPitchBytes;
     if (srcPitch <= 0) srcPitch = width * 4;
@@ -353,7 +360,7 @@ g4f_bitmap* g4f_bitmap_create_rgba8(g4f_renderer* renderer, int width, int heigh
 
     ID2D1Bitmap* bitmap = nullptr;
     HRESULT hr = target->CreateBitmap(D2D1::SizeU((UINT32)width, (UINT32)height), premulBgra.data(), (UINT32)(width * 4), &props, &bitmap);
-    if (FAILED(hr) || !bitmap) return nullptr;
+    if (FAILED(hr) || !bitmap) { g4f_set_last_hresult_error("g4f_bitmap_create_rgba8: CreateBitmap failed", hr); return nullptr; }
 
     auto* out = new g4f_bitmap();
     out->bitmap = bitmap;
@@ -468,39 +475,42 @@ void g4f_clip_pop(g4f_renderer* renderer) {
 }
 
 g4f_renderer* g4f_renderer_create_for_gfx(g4f_gfx* gfx) {
-    if (!gfx || !gfx->window || !gfx->device || !gfx->swapChain) return nullptr;
+    if (!gfx || !gfx->window || !gfx->device || !gfx->swapChain) {
+        g4f_set_last_error("g4f_renderer_create_for_gfx: invalid gfx");
+        return nullptr;
+    }
     auto* renderer = new g4f_renderer();
     renderer->window = gfx->window;
     renderer->gfx = gfx;
 
     HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &renderer->d2dFactory);
-    if (FAILED(hr)) { g4f_renderer_destroy(renderer); return nullptr; }
+    if (FAILED(hr)) { g4f_set_last_hresult_error("g4f_renderer_create_for_gfx: D2D1CreateFactory failed", hr); g4f_renderer_destroy(renderer); return nullptr; }
 
     hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &renderer->d2dFactory1);
-    if (FAILED(hr)) { g4f_renderer_destroy(renderer); return nullptr; }
+    if (FAILED(hr)) { g4f_set_last_hresult_error("g4f_renderer_create_for_gfx: D2D1CreateFactory(1) failed", hr); g4f_renderer_destroy(renderer); return nullptr; }
 
     hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), (IUnknown**)&renderer->dwriteFactory);
-    if (FAILED(hr)) { g4f_renderer_destroy(renderer); return nullptr; }
+    if (FAILED(hr)) { g4f_set_last_hresult_error("g4f_renderer_create_for_gfx: DWriteCreateFactory failed", hr); g4f_renderer_destroy(renderer); return nullptr; }
 
     hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&renderer->wicFactory));
-    if (FAILED(hr)) { g4f_renderer_destroy(renderer); return nullptr; }
+    if (FAILED(hr)) { g4f_set_last_hresult_error("g4f_renderer_create_for_gfx: WIC factory creation failed", hr); g4f_renderer_destroy(renderer); return nullptr; }
 
     IDXGIDevice* dxgiDevice = nullptr;
     hr = gfx->device->QueryInterface(__uuidof(IDXGIDevice), (void**)&dxgiDevice);
-    if (FAILED(hr) || !dxgiDevice) { g4f_renderer_destroy(renderer); return nullptr; }
+    if (FAILED(hr) || !dxgiDevice) { g4f_set_last_hresult_error("g4f_renderer_create_for_gfx: QueryInterface(IDXGIDevice) failed", hr); g4f_renderer_destroy(renderer); return nullptr; }
 
     hr = renderer->d2dFactory1->CreateDevice(dxgiDevice, &renderer->d2dDevice);
     dxgiDevice->Release();
-    if (FAILED(hr) || !renderer->d2dDevice) { g4f_renderer_destroy(renderer); return nullptr; }
+    if (FAILED(hr) || !renderer->d2dDevice) { g4f_set_last_hresult_error("g4f_renderer_create_for_gfx: CreateDevice failed", hr); g4f_renderer_destroy(renderer); return nullptr; }
 
     hr = renderer->d2dDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &renderer->gfxContext);
-    if (FAILED(hr) || !renderer->gfxContext) { g4f_renderer_destroy(renderer); return nullptr; }
+    if (FAILED(hr) || !renderer->gfxContext) { g4f_set_last_hresult_error("g4f_renderer_create_for_gfx: CreateDeviceContext failed", hr); g4f_renderer_destroy(renderer); return nullptr; }
 
     hr = renderer->gfxContext->CreateSolidColorBrush(D2D1::ColorF(1, 1, 1, 1), &renderer->brush);
-    if (FAILED(hr)) { g4f_renderer_destroy(renderer); return nullptr; }
+    if (FAILED(hr)) { g4f_set_last_hresult_error("g4f_renderer_create_for_gfx: CreateSolidColorBrush failed", hr); g4f_renderer_destroy(renderer); return nullptr; }
 
     // Bind backbuffer now.
     hr = g4f_renderer_bind_gfx_backbuffer(renderer);
-    if (FAILED(hr)) { g4f_renderer_destroy(renderer); return nullptr; }
+    if (FAILED(hr)) { g4f_set_last_hresult_error("g4f_renderer_create_for_gfx: bind backbuffer failed", hr); g4f_renderer_destroy(renderer); return nullptr; }
     return renderer;
 }

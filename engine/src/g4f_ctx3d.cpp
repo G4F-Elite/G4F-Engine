@@ -1,4 +1,5 @@
 #include "g4f_platform_win32.h"
+#include "g4f_error_internal.h"
 
 #include "../include/g4f/g4f.h"
 
@@ -13,24 +14,30 @@ struct g4f_ctx3d {
 };
 
 g4f_ctx3d* g4f_ctx3d_create(const g4f_window_desc* windowDesc) {
-    if (!windowDesc) return nullptr;
+    if (!windowDesc) {
+        g4f_set_last_error("g4f_ctx3d_create: windowDesc is null");
+        return nullptr;
+    }
     g4f_app_desc appDesc{};
 
     auto* ctx = new g4f_ctx3d();
     ctx->app = g4f_app_create(&appDesc);
     if (!ctx->app) {
+        if (!g4f_last_error()[0]) g4f_set_last_error("g4f_ctx3d_create: g4f_app_create failed");
         g4f_ctx3d_destroy(ctx);
         return nullptr;
     }
 
     ctx->window = g4f_window_create(ctx->app, windowDesc);
     if (!ctx->window) {
+        if (!g4f_last_error()[0]) g4f_set_last_error("g4f_ctx3d_create: g4f_window_create failed");
         g4f_ctx3d_destroy(ctx);
         return nullptr;
     }
 
     ctx->gfx = g4f_gfx_create(ctx->window);
     if (!ctx->gfx) {
+        if (!g4f_last_error()[0]) g4f_set_last_error("g4f_ctx3d_create: g4f_gfx_create failed");
         g4f_ctx3d_destroy(ctx);
         return nullptr;
     }
@@ -87,4 +94,3 @@ void g4f_frame3d_end(g4f_ctx3d* ctx) {
     if (!ctx || !ctx->gfx) return;
     g4f_gfx_end(ctx->gfx);
 }
-
