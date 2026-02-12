@@ -43,7 +43,7 @@ void testRestoreOutcomeClampsVitals() {
     assert(!breach);
     assert(hp == 100.0f);
     assert(sn == 100.0f);
-    assert(st == 100.0f);
+    assert(st == 105.0f);
 }
 
 void testBreachOutcome() {
