@@ -3,6 +3,9 @@ out/
 bin/
 build/
 
+# Vendored smoke project (kept locally)
+Backrooms-master/
+
 # Compilers
 *.o
 *.obj
@@ -21,4 +24,3 @@ build/
 *.user
 Thumbs.db
 Desktop.ini
-
