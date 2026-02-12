@@ -82,6 +82,12 @@ struct g4f_ui {
 
     uint64_t textActive = 0;
 
+    int disabledDepth = 0;
+
+    uint64_t lastItemId = 0;
+    g4f_rect_f lastItemRect{};
+    int lastItemHovered = 0;
+
     struct ScrollState {
         uint64_t id;
         float scrollY;
@@ -90,6 +96,10 @@ struct g4f_ui {
     std::vector<ScrollState> scrollStates;
     ScrollState* currentScroll = nullptr;
 };
+
+static bool uiIsDisabled(const g4f_ui* ui) {
+    return ui && ui->disabledDepth > 0;
+}
 
 g4f_ui_theme g4f_ui_theme_dark(void) {
     g4f_ui_theme t{};
@@ -163,6 +173,11 @@ void g4f_ui_begin(g4f_ui* ui, g4f_renderer* renderer, const g4f_window* window) 
     ui->hot = 0;
     ui->lastActive = ui->active;
     if (!ui->mouseDown) ui->active = 0;
+
+    ui->disabledDepth = 0;
+    ui->lastItemId = 0;
+    ui->lastItemRect = g4f_rect_f{0, 0, 0, 0};
+    ui->lastItemHovered = 0;
 }
 
 void g4f_ui_end(g4f_ui* ui) {
@@ -454,6 +469,7 @@ static void uiDrawItemBg(g4f_ui* ui, g4f_rect_f r, bool hovered, bool active, bo
 }
 
 static int uiItemBehavior(g4f_ui* ui, uint64_t id, g4f_rect_f r) {
+    if (uiIsDisabled(ui)) return 0;
     int hovered = pointInRect(ui->mouseX, ui->mouseY, r);
     if (hovered) ui->hot = id;
     if (hovered && ui->mousePressed) { ui->active = id; ui->focus = id; }
@@ -464,6 +480,7 @@ static int uiItemBehavior(g4f_ui* ui, uint64_t id, g4f_rect_f r) {
 }
 
 static void uiRegisterFocusable(g4f_ui* ui, uint64_t id) {
+    if (uiIsDisabled(ui)) return;
     ui->navOrder.push_back(id);
     if (ui->focus == 0) ui->focus = id;
 }
@@ -555,18 +572,33 @@ void g4f_ui_panel_end(g4f_ui* ui) {
     ui->panelOpen = false;
 }
 
+void g4f_ui_disabled_begin(g4f_ui* ui, int disabled) {
+    if (!ui) return;
+    if (disabled) ui->disabledDepth++;
+}
+
+void g4f_ui_disabled_end(g4f_ui* ui) {
+    if (!ui) return;
+    if (ui->disabledDepth > 0) ui->disabledDepth--;
+}
+
 int g4f_ui_button(g4f_ui* ui, const char* label_utf8) {
     if (!ui || !ui->renderer || !label_utf8) return 0;
     g4f_rect_f r = g4f_ui_layout_next(ui, 0.0f);
     uint64_t id = g4f_ui_make_id(ui, label_utf8);
     uiRegisterFocusable(ui, id);
     int clicked = uiItemBehavior(ui, id, r);
-    bool hovered = ui->hot == id;
-    bool active = ui->active == id && ui->mouseDown;
-    bool focused = ui->focus == id;
+    const bool disabled = uiIsDisabled(ui);
+    bool hovered = !disabled && (ui->hot == id);
+    bool active = !disabled && (ui->active == id && ui->mouseDown);
+    bool focused = !disabled && (ui->focus == id);
     uiDrawItemBg(ui, r, hovered, active, focused);
-    g4f_draw_text(ui->renderer, label_utf8, r.x + 14.0f, r.y + 10.0f, 18.0f, ui->theme.text);
-    if (focused && ui->navActivate) clicked = 1;
+    g4f_draw_text(ui->renderer, label_utf8, r.x + 14.0f, r.y + 10.0f, 18.0f, disabled ? ui->theme.textMuted : ui->theme.text);
+    if (focused && ui->navActivate && !disabled) clicked = 1;
+
+    ui->lastItemId = id;
+    ui->lastItemRect = r;
+    ui->lastItemHovered = hovered;
     return clicked;
 }
 
@@ -587,18 +619,23 @@ int g4f_ui_image_button(g4f_ui* ui, const char* label_utf8, const g4f_bitmap* bi
     g4f_rect_f r = g4f_ui_layout_next(ui, h);
     uint64_t id = g4f_ui_make_id(ui, label_utf8);
     uiRegisterFocusable(ui, id);
+    const bool disabled = uiIsDisabled(ui);
 
     int clicked = uiItemBehavior(ui, id, r);
-    bool hovered = ui->hot == id;
-    bool active = ui->active == id && ui->mouseDown;
-    bool focused = ui->focus == id;
+    bool hovered = !disabled && (ui->hot == id);
+    bool active = !disabled && (ui->active == id && ui->mouseDown);
+    bool focused = !disabled && (ui->focus == id);
     uiDrawItemBg(ui, r, hovered, active, focused);
 
     g4f_rect_f iconBox{r.x + 12.0f, r.y + 8.0f, r.h - 16.0f, r.h - 16.0f};
-    uiDrawBitmapContained(ui->renderer, bitmap, iconBox, opacity);
-    g4f_draw_text(ui->renderer, label_utf8, iconBox.x + iconBox.w + 12.0f, r.y + (r.h * 0.5f - 10.0f), 18.0f, ui->theme.text);
+    uiDrawBitmapContained(ui->renderer, bitmap, iconBox, disabled ? (opacity * 0.55f) : opacity);
+    g4f_draw_text(ui->renderer, label_utf8, iconBox.x + iconBox.w + 12.0f, r.y + (r.h * 0.5f - 10.0f), 18.0f, disabled ? ui->theme.textMuted : ui->theme.text);
 
-    if (focused && ui->navActivate) clicked = 1;
+    if (focused && ui->navActivate && !disabled) clicked = 1;
+
+    ui->lastItemId = id;
+    ui->lastItemRect = r;
+    ui->lastItemHovered = hovered;
     return clicked;
 }
 
@@ -608,9 +645,10 @@ int g4f_ui_checkbox(g4f_ui* ui, const char* label_utf8, int* value) {
     uint64_t id = g4f_ui_make_id(ui, label_utf8);
     uiRegisterFocusable(ui, id);
     int clicked = uiItemBehavior(ui, id, r);
-    bool hovered = ui->hot == id;
-    bool active = ui->active == id && ui->mouseDown;
-    bool focused = ui->focus == id;
+    const bool disabled = uiIsDisabled(ui);
+    bool hovered = !disabled && (ui->hot == id);
+    bool active = !disabled && (ui->active == id && ui->mouseDown);
+    bool focused = !disabled && (ui->focus == id);
     uiDrawItemBg(ui, r, hovered, active, focused);
 
     g4f_rect_f box{r.x + 14.0f, r.y + 10.0f, 22.0f, 22.0f};
@@ -620,13 +658,17 @@ int g4f_ui_checkbox(g4f_ui* ui, const char* label_utf8, int* value) {
         g4f_draw_rect(ui->renderer, g4f_rect_f{box.x + 5.0f, box.y + 5.0f, box.w - 10.0f, box.h - 10.0f}, ui->theme.accent);
     }
 
-    g4f_draw_text(ui->renderer, label_utf8, r.x + 48.0f, r.y + 10.0f, 18.0f, ui->theme.text);
+    g4f_draw_text(ui->renderer, label_utf8, r.x + 48.0f, r.y + 10.0f, 18.0f, disabled ? ui->theme.textMuted : ui->theme.text);
 
-    if (focused && ui->navActivate) clicked = 1;
-    if (clicked) {
+    if (focused && ui->navActivate && !disabled) clicked = 1;
+    if (clicked && !disabled) {
         *value = (*value) ? 0 : 1;
         return 1;
     }
+
+    ui->lastItemId = id;
+    ui->lastItemRect = r;
+    ui->lastItemHovered = hovered;
     return 0;
 }
 
@@ -635,14 +677,15 @@ int g4f_ui_slider_float(g4f_ui* ui, const char* label_utf8, float* value, float 
     g4f_rect_f r = g4f_ui_layout_next(ui, 0.0f);
     uint64_t id = g4f_ui_make_id(ui, label_utf8);
     uiRegisterFocusable(ui, id);
+    const bool disabled = uiIsDisabled(ui);
 
-    int hovered = pointInRect(ui->mouseX, ui->mouseY, r);
+    int hovered = (!disabled) && pointInRect(ui->mouseX, ui->mouseY, r);
     if (hovered) ui->hot = id;
     if (hovered && ui->mousePressed) { ui->active = id; ui->focus = id; }
 
-    bool isActive = ui->active == id && ui->mouseDown;
-    bool isHovered = ui->hot == id;
-    bool focused = ui->focus == id;
+    bool isActive = !disabled && (ui->active == id && ui->mouseDown);
+    bool isHovered = !disabled && (ui->hot == id);
+    bool focused = !disabled && (ui->focus == id);
     uiDrawItemBg(ui, r, isHovered, isActive, focused);
 
     g4f_rect_f track{r.x + 14.0f, r.y + 32.0f, r.w - 28.0f, 6.0f};
@@ -661,7 +704,7 @@ int g4f_ui_slider_float(g4f_ui* ui, const char* label_utf8, float* value, float 
         }
     }
 
-    if (focused && maxValue > minValue) {
+    if (focused && maxValue > minValue && !disabled) {
         float step = 0.05f;
         if (ui->window) {
             int shift = g4f_key_down(ui->window, G4F_KEY_LEFT_SHIFT) || g4f_key_down(ui->window, G4F_KEY_RIGHT_SHIFT);
@@ -677,13 +720,17 @@ int g4f_ui_slider_float(g4f_ui* ui, const char* label_utf8, float* value, float 
     float knobX = track.x + track.w * t;
     g4f_draw_round_rect(ui->renderer, g4f_rect_f{knobX - 7.0f, track.y - 6.0f, 14.0f, 18.0f}, 7.0f, ui->theme.accent);
 
-    g4f_draw_text(ui->renderer, label_utf8, r.x + 14.0f, r.y + 8.0f, 16.0f, ui->theme.text);
+    g4f_draw_text(ui->renderer, label_utf8, r.x + 14.0f, r.y + 8.0f, 16.0f, disabled ? ui->theme.textMuted : ui->theme.text);
 
     char buf[64];
     std::snprintf(buf, sizeof(buf), "%.2f", (double)*value);
     float tw = 0.0f, th = 0.0f;
     g4f_measure_text(ui->renderer, buf, 16.0f, &tw, &th);
     g4f_draw_text(ui->renderer, buf, r.x + r.w - 14.0f - tw, r.y + 8.0f, 16.0f, ui->theme.textMuted);
+
+    ui->lastItemId = id;
+    ui->lastItemRect = r;
+    ui->lastItemHovered = isHovered;
 
     return isActive ? 1 : 0;
 }
@@ -717,20 +764,21 @@ int g4f_ui_input_text_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8
     g4f_rect_f r = g4f_ui_layout_next(ui, 0.0f);
     uint64_t id = g4f_ui_make_id(ui, key_utf8);
     uiRegisterFocusable(ui, id);
+    const bool disabled = uiIsDisabled(ui);
 
     int clicked = uiItemBehavior(ui, id, r);
-    bool focused = ui->focus == id;
-    bool active = ui->textActive == id;
-    if (clicked) ui->textActive = id;
-    if (focused && ui->navActivate) ui->textActive = id;
+    bool focused = !disabled && (ui->focus == id);
+    bool active = !disabled && (ui->textActive == id);
+    if (clicked && !disabled) ui->textActive = id;
+    if (focused && ui->navActivate && !disabled) ui->textActive = id;
     if (!focused && ui->navActivate && ui->textActive == id) ui->textActive = 0;
     if (ui->window && g4f_key_pressed(ui->window, G4F_KEY_ESCAPE) && ui->textActive == id) ui->textActive = 0;
 
-    bool hovered = ui->hot == id;
-    uiDrawItemBg(ui, r, hovered, ui->active == id && ui->mouseDown, focused || active);
+    bool hovered = !disabled && (ui->hot == id);
+    uiDrawItemBg(ui, r, hovered, (!disabled) && (ui->active == id && ui->mouseDown), focused || active);
 
     // Label
-    g4f_draw_text(ui->renderer, label_utf8, r.x + 14.0f, r.y + 8.0f, 16.0f, ui->theme.text);
+    g4f_draw_text(ui->renderer, label_utf8, r.x + 14.0f, r.y + 8.0f, 16.0f, disabled ? ui->theme.textMuted : ui->theme.text);
 
     // Input box area
     g4f_rect_f box{r.x + 14.0f, r.y + 28.0f, r.w - 28.0f, 14.0f};
@@ -952,7 +1000,7 @@ int g4f_ui_input_text_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8
     float baseX = box.x + 6.0f - (value.empty() ? 0.0f : scrollX);
     g4f_draw_text(ui->renderer, drawText, baseX, box.y - 2.0f, 16.0f, drawColor);
 
-    if (active) {
+    if (active && !disabled) {
         std::string left = value.substr(0, caret);
         float lw = 0.0f, lh = 0.0f;
         g4f_measure_text(ui->renderer, left.c_str(), 16.0f, &lw, &lh);
@@ -964,6 +1012,10 @@ int g4f_ui_input_text_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8
     if (out_utf8 && out_cap > 0) {
         std::snprintf(out_utf8, (size_t)out_cap, "%s", value.c_str());
     }
+
+    ui->lastItemId = id;
+    ui->lastItemRect = r;
+    ui->lastItemHovered = hovered;
     return changed;
 }
 
@@ -982,4 +1034,37 @@ void g4f_ui_separator(g4f_ui* ui) {
     g4f_rect_f r = g4f_ui_layout_next(ui, 10.0f);
     float y = r.y + r.h * 0.5f;
     g4f_draw_line(ui->renderer, r.x, y, r.x + r.w, y, 1.5f, blendAlpha(ui->theme.panelBorder, 255));
+}
+
+void g4f_ui_tooltip(g4f_ui* ui, const char* text_utf8, float size_px) {
+    if (!ui || !ui->renderer || !text_utf8) return;
+    if (!ui->lastItemHovered) return;
+
+    float fontSize = (size_px > 0.0f) ? size_px : 14.0f;
+    const float pad = 10.0f;
+    const float maxW = 360.0f;
+    float tw = 0.0f, th = 0.0f;
+    g4f_measure_text_wrapped(ui->renderer, text_utf8, fontSize, maxW, 2000.0f, &tw, &th);
+
+    g4f_rect_f tip{ui->mouseX + 14.0f, ui->mouseY + 14.0f, tw + pad * 2.0f, th + pad * 2.0f};
+
+    int winW = 0, winH = 0;
+    if (ui->window) g4f_window_get_size(ui->window, &winW, &winH);
+    if (winW > 0 && winH > 0) {
+        if (tip.x + tip.w > (float)winW - 8.0f) tip.x = (float)winW - 8.0f - tip.w;
+        if (tip.y + tip.h > (float)winH - 8.0f) tip.y = (float)winH - 8.0f - tip.h;
+        if (tip.x < 8.0f) tip.x = 8.0f;
+        if (tip.y < 8.0f) tip.y = 8.0f;
+    }
+
+    uint32_t bg = blendAlpha(ui->theme.panelBg, 245);
+    g4f_draw_round_rect(ui->renderer, tip, 10.0f, bg);
+    g4f_draw_round_rect_outline(ui->renderer, tip, 10.0f, 2.0f, blendAlpha(ui->theme.panelBorder, 245));
+    g4f_draw_text_wrapped(
+        ui->renderer,
+        text_utf8,
+        g4f_rect_f{tip.x + pad, tip.y + pad, tip.w - pad * 2.0f, tip.h - pad * 2.0f},
+        fontSize,
+        ui->theme.text
+    );
 }

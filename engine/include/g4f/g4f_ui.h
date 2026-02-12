@@ -58,11 +58,19 @@ int g4f_ui_label(g4f_ui* ui, const char* text_utf8, float size_px);
 void g4f_ui_panel_begin(g4f_ui* ui, const char* title_utf8, g4f_rect_f bounds);
 void g4f_ui_panel_end(g4f_ui* ui);
 void g4f_ui_panel_begin_scroll(g4f_ui* ui, const char* title_utf8, g4f_rect_f bounds);
+
+// Disabled-state stack (use to grey out and block interactions).
+void g4f_ui_disabled_begin(g4f_ui* ui, int disabled);
+void g4f_ui_disabled_end(g4f_ui* ui);
+
 int g4f_ui_button(g4f_ui* ui, const char* label_utf8);
 int g4f_ui_checkbox(g4f_ui* ui, const char* label_utf8, int* value);
 int g4f_ui_slider_float(g4f_ui* ui, const char* label_utf8, float* value, float minValue, float maxValue);
 int g4f_ui_text_wrapped(g4f_ui* ui, const char* text_utf8, float size_px);
 void g4f_ui_separator(g4f_ui* ui);
+
+// Tooltip for the last submitted item (shows when hovered).
+void g4f_ui_tooltip(g4f_ui* ui, const char* text_utf8, float size_px);
 
 // Image helpers (bitmaps can be loaded from file or generated in code).
 void g4f_ui_image(g4f_ui* ui, const g4f_bitmap* bitmap, float height, float opacity);
