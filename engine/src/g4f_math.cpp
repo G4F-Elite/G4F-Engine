@@ -93,26 +93,25 @@ g4f_mat4 g4f_mat4_perspective(float fovYRadians, float aspect, float zn, float z
 g4f_mat4 g4f_mat4_look_at(g4f_vec3 eye, g4f_vec3 at, g4f_vec3 up) {
     // Row-vector convention:
     // p_view = p_world * View, so translation is in last row, and axes are in columns.
-    g4f_vec3 f = vec3Normalize(vec3Sub(at, eye));
-    g4f_vec3 s = vec3Normalize(vec3Cross(f, up));
-    g4f_vec3 u = vec3Cross(s, f);
+    g4f_vec3 forward = vec3Normalize(vec3Sub(at, eye));
+    g4f_vec3 right = vec3Normalize(vec3Cross(forward, up));
+    g4f_vec3 upVec = vec3Cross(right, forward);
 
     g4f_mat4 out = g4f_mat4_identity();
-    out.m[0] = s.x;
-    out.m[4] = s.y;
-    out.m[8] = s.z;
+    out.m[0] = right.x;
+    out.m[4] = right.y;
+    out.m[8] = right.z;
 
-    out.m[1] = u.x;
-    out.m[5] = u.y;
-    out.m[9] = u.z;
+    out.m[1] = upVec.x;
+    out.m[5] = upVec.y;
+    out.m[9] = upVec.z;
 
-    out.m[2] = -f.x;
-    out.m[6] = -f.y;
-    out.m[10] = -f.z;
+    out.m[2] = -forward.x;
+    out.m[6] = -forward.y;
+    out.m[10] = -forward.z;
 
-    out.m[12] = -vec3Dot(s, eye);
-    out.m[13] = -vec3Dot(u, eye);
-    out.m[14] = vec3Dot(f, eye);
+    out.m[12] = -vec3Dot(right, eye);
+    out.m[13] = -vec3Dot(upVec, eye);
+    out.m[14] = vec3Dot(forward, eye);
     return out;
 }
-
