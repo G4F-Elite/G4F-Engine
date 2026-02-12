@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <vector>
 
 namespace {
 
@@ -40,6 +41,21 @@ LRESULT CALLBACK g4f_wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             if (windowState) {
                 int delta = GET_WHEEL_DELTA_WPARAM(wparam);
                 windowState->wheelDelta += (float)delta / (float)WHEEL_DELTA;
+            }
+            return 0;
+        }
+        case WM_INPUT: {
+            if (!windowState || !windowState->cursorCaptured || !windowState->rawMouseEnabled) break;
+            UINT size = 0;
+            GetRawInputData((HRAWINPUT)lparam, RID_INPUT, nullptr, &size, sizeof(RAWINPUTHEADER));
+            if (size == 0) return 0;
+            std::vector<uint8_t> buf;
+            buf.resize((size_t)size);
+            if (GetRawInputData((HRAWINPUT)lparam, RID_INPUT, buf.data(), &size, sizeof(RAWINPUTHEADER)) != size) return 0;
+            RAWINPUT* ri = (RAWINPUT*)buf.data();
+            if (ri->header.dwType == RIM_TYPEMOUSE) {
+                windowState->rawMouseDx += (float)ri->data.mouse.lLastX;
+                windowState->rawMouseDy += (float)ri->data.mouse.lLastY;
             }
             return 0;
         }
@@ -230,6 +246,8 @@ int g4f_window_poll(g4f_window* window) {
     window->state.wheelDelta = 0.0f;
     window->state.textInputCount = 0;
     window->state.pendingHighSurrogate = 0;
+    window->state.rawMouseDx = 0.0f;
+    window->state.rawMouseDy = 0.0f;
 
     MSG msg{};
     while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
@@ -237,26 +255,33 @@ int g4f_window_poll(g4f_window* window) {
         DispatchMessageW(&msg);
     }
 
-    // Per-frame mouse delta. If cursor is captured, re-center it to keep deltas flowing.
+    // Per-frame mouse delta. Prefer WM_INPUT raw deltas when captured.
     if (window->state.cursorCaptured && window->state.hwnd) {
-        RECT rc{};
-        GetClientRect(window->state.hwnd, &rc);
-        int cx = (rc.left + rc.right) / 2;
-        int cy = (rc.top + rc.bottom) / 2;
+        if (window->state.rawMouseEnabled) {
+            window->state.mouseDx = window->state.rawMouseDx;
+            window->state.mouseDy = window->state.rawMouseDy;
+            window->state.prevMouseX = window->state.mouseX;
+            window->state.prevMouseY = window->state.mouseY;
+        } else {
+            RECT rc{};
+            GetClientRect(window->state.hwnd, &rc);
+            int cx = (rc.left + rc.right) / 2;
+            int cy = (rc.top + rc.bottom) / 2;
 
-        float dx = window->state.mouseX - (float)cx;
-        float dy = window->state.mouseY - (float)cy;
-        window->state.mouseDx = dx;
-        window->state.mouseDy = dy;
+            float dx = window->state.mouseX - (float)cx;
+            float dy = window->state.mouseY - (float)cy;
+            window->state.mouseDx = dx;
+            window->state.mouseDy = dy;
 
-        POINT p{cx, cy};
-        ClientToScreen(window->state.hwnd, &p);
-        window->state.ignoreNextMouseMove = true;
-        SetCursorPos(p.x, p.y);
-        window->state.mouseX = (float)cx;
-        window->state.mouseY = (float)cy;
-        window->state.prevMouseX = (float)cx;
-        window->state.prevMouseY = (float)cy;
+            POINT p{cx, cy};
+            ClientToScreen(window->state.hwnd, &p);
+            window->state.ignoreNextMouseMove = true;
+            SetCursorPos(p.x, p.y);
+            window->state.mouseX = (float)cx;
+            window->state.mouseY = (float)cy;
+            window->state.prevMouseX = (float)cx;
+            window->state.prevMouseY = (float)cy;
+        }
     } else {
         window->state.mouseDx = window->state.mouseX - window->state.prevMouseX;
         window->state.mouseDy = window->state.mouseY - window->state.prevMouseY;
@@ -368,6 +393,19 @@ void g4f_window_set_cursor_captured(g4f_window* window, int captured) {
     window->state.cursorCaptured = wantCaptured;
 
     if (wantCaptured) {
+        if (!window->state.rawMouseEnabled) {
+            RAWINPUTDEVICE rid{};
+            rid.usUsagePage = 0x01;
+            rid.usUsage = 0x02;
+            rid.dwFlags = RIDEV_INPUTSINK;
+            rid.hwndTarget = window->state.hwnd;
+            if (RegisterRawInputDevices(&rid, 1, sizeof(rid))) {
+                window->state.rawMouseEnabled = true;
+                window->state.rawMouseDx = 0.0f;
+                window->state.rawMouseDy = 0.0f;
+            }
+        }
+
         if (!window->state.cursorHidden) {
             while (ShowCursor(FALSE) >= 0) {}
             window->state.cursorHidden = true;
@@ -400,6 +438,9 @@ void g4f_window_set_cursor_captured(g4f_window* window, int captured) {
             while (ShowCursor(TRUE) < 0) {}
             window->state.cursorHidden = false;
         }
+        window->state.rawMouseEnabled = false;
+        window->state.rawMouseDx = 0.0f;
+        window->state.rawMouseDy = 0.0f;
         window->state.mouseDx = 0.0f;
         window->state.mouseDy = 0.0f;
         window->state.prevMouseX = window->state.mouseX;

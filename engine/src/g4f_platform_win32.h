@@ -43,6 +43,11 @@ struct WindowState {
     bool cursorCaptured = false;
     bool cursorHidden = false;
     bool ignoreNextMouseMove = false;
+
+    // Raw mouse input (preferred for FPS camera when captured).
+    bool rawMouseEnabled = false;
+    float rawMouseDx = 0.0f;
+    float rawMouseDy = 0.0f;
 };
 
 struct AppState {
