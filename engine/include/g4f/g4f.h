@@ -276,6 +276,7 @@ void g4f_window_destroy(g4f_window* window);
 int g4f_window_poll(g4f_window* window); // returns 0 when should close
 void g4f_window_request_close(g4f_window* window);
 void g4f_window_get_size(const g4f_window* window, int* width, int* height);
+void g4f_window_set_title(g4f_window* window, const char* title_utf8);
 
 // Input (state is updated by g4f_window_poll()).
 int g4f_key_down(const g4f_window* window, int key);

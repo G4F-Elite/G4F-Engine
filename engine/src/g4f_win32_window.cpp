@@ -304,6 +304,12 @@ void g4f_window_get_size(const g4f_window* window, int* width, int* height) {
     if (height) *height = window->state.height;
 }
 
+void g4f_window_set_title(g4f_window* window, const char* title_utf8) {
+    if (!window || !window->state.hwnd) return;
+    std::wstring title = g4f_utf8_to_wide(title_utf8 ? title_utf8 : "");
+    SetWindowTextW(window->state.hwnd, title.c_str());
+}
+
 int g4f_window_poll(g4f_window* window) {
     if (!window) return 0;
     window->state.keyPressed.fill(0);
