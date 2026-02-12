@@ -29,12 +29,20 @@ struct WindowState {
     std::array<uint8_t, kMouseStateCount> mousePressed{};
     float mouseX = 0.0f;
     float mouseY = 0.0f;
+    float mouseDx = 0.0f;
+    float mouseDy = 0.0f;
+    float prevMouseX = 0.0f;
+    float prevMouseY = 0.0f;
     float wheelDelta = 0.0f;
 
     // Text input for the current poll/frame (Unicode code points).
     uint32_t textInput[64]{};
     int textInputCount = 0;
     uint16_t pendingHighSurrogate = 0;
+
+    bool cursorCaptured = false;
+    bool cursorHidden = false;
+    bool ignoreNextMouseMove = false;
 };
 
 struct AppState {

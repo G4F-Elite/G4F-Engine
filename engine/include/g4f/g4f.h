@@ -265,7 +265,13 @@ int g4f_mouse_down(const g4f_window* window, int button);
 int g4f_mouse_pressed(const g4f_window* window, int button);
 float g4f_mouse_x(const g4f_window* window);
 float g4f_mouse_y(const g4f_window* window);
+float g4f_mouse_dx(const g4f_window* window); // per-frame
+float g4f_mouse_dy(const g4f_window* window); // per-frame
 float g4f_mouse_wheel_delta(const g4f_window* window); // per-frame, resets on poll
+
+// Cursor capture (useful for 3D camera).
+// When enabled, cursor is hidden and movement becomes "relative" via per-frame dx/dy.
+void g4f_window_set_cursor_captured(g4f_window* window, int captured);
 
 // Text input (per-frame), filled by the OS (WM_CHAR). Values are Unicode code points.
 int g4f_text_input_count(const g4f_window* window);

@@ -27,6 +27,10 @@ LRESULT CALLBACK g4f_wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
         }
         case WM_MOUSEMOVE: {
             if (windowState) {
+                if (windowState->ignoreNextMouseMove) {
+                    windowState->ignoreNextMouseMove = false;
+                    return 0;
+                }
                 windowState->mouseX = (float)GET_X_LPARAM(lparam);
                 windowState->mouseY = (float)GET_Y_LPARAM(lparam);
             }
@@ -188,6 +192,15 @@ g4f_window* g4f_window_create(g4f_app* app, const g4f_window_desc* desc) {
 
     ShowWindow(hwnd, SW_SHOW);
     UpdateWindow(hwnd);
+
+    // Initialize mouse position to avoid large deltas on first poll.
+    POINT p{};
+    if (GetCursorPos(&p) && ScreenToClient(hwnd, &p)) {
+        window->state.mouseX = (float)p.x;
+        window->state.mouseY = (float)p.y;
+        window->state.prevMouseX = window->state.mouseX;
+        window->state.prevMouseY = window->state.mouseY;
+    }
     return window;
 }
 
@@ -212,6 +225,8 @@ int g4f_window_poll(g4f_window* window) {
     if (!window) return 0;
     window->state.keyPressed.fill(0);
     window->state.mousePressed.fill(0);
+    window->state.mouseDx = 0.0f;
+    window->state.mouseDy = 0.0f;
     window->state.wheelDelta = 0.0f;
     window->state.textInputCount = 0;
     window->state.pendingHighSurrogate = 0;
@@ -220,6 +235,33 @@ int g4f_window_poll(g4f_window* window) {
     while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
+    }
+
+    // Per-frame mouse delta. If cursor is captured, re-center it to keep deltas flowing.
+    if (window->state.cursorCaptured && window->state.hwnd) {
+        RECT rc{};
+        GetClientRect(window->state.hwnd, &rc);
+        int cx = (rc.left + rc.right) / 2;
+        int cy = (rc.top + rc.bottom) / 2;
+
+        float dx = window->state.mouseX - (float)cx;
+        float dy = window->state.mouseY - (float)cy;
+        window->state.mouseDx = dx;
+        window->state.mouseDy = dy;
+
+        POINT p{cx, cy};
+        ClientToScreen(window->state.hwnd, &p);
+        window->state.ignoreNextMouseMove = true;
+        SetCursorPos(p.x, p.y);
+        window->state.mouseX = (float)cx;
+        window->state.mouseY = (float)cy;
+        window->state.prevMouseX = (float)cx;
+        window->state.prevMouseY = (float)cy;
+    } else {
+        window->state.mouseDx = window->state.mouseX - window->state.prevMouseX;
+        window->state.mouseDy = window->state.mouseY - window->state.prevMouseY;
+        window->state.prevMouseX = window->state.mouseX;
+        window->state.prevMouseY = window->state.mouseY;
     }
 
     return window->state.shouldClose ? 0 : 1;
@@ -251,6 +293,14 @@ float g4f_mouse_x(const g4f_window* window) {
 
 float g4f_mouse_y(const g4f_window* window) {
     return window ? window->state.mouseY : 0.0f;
+}
+
+float g4f_mouse_dx(const g4f_window* window) {
+    return window ? window->state.mouseDx : 0.0f;
+}
+
+float g4f_mouse_dy(const g4f_window* window) {
+    return window ? window->state.mouseDy : 0.0f;
 }
 
 float g4f_mouse_wheel_delta(const g4f_window* window) {
@@ -309,4 +359,50 @@ int g4f_clipboard_set_utf8(const g4f_window* window, const char* text_utf8) {
     CloseClipboard();
     if (!res) { GlobalFree(hmem); return 0; }
     return 1;
+}
+
+void g4f_window_set_cursor_captured(g4f_window* window, int captured) {
+    if (!window || !window->state.hwnd) return;
+    bool wantCaptured = captured ? true : false;
+    if (window->state.cursorCaptured == wantCaptured) return;
+    window->state.cursorCaptured = wantCaptured;
+
+    if (wantCaptured) {
+        if (!window->state.cursorHidden) {
+            while (ShowCursor(FALSE) >= 0) {}
+            window->state.cursorHidden = true;
+        }
+
+        RECT rc{};
+        GetClientRect(window->state.hwnd, &rc);
+        POINT tl{rc.left, rc.top};
+        POINT br{rc.right, rc.bottom};
+        ClientToScreen(window->state.hwnd, &tl);
+        ClientToScreen(window->state.hwnd, &br);
+        RECT clip{tl.x, tl.y, br.x, br.y};
+        ClipCursor(&clip);
+
+        int cx = (rc.left + rc.right) / 2;
+        int cy = (rc.top + rc.bottom) / 2;
+        POINT p{cx, cy};
+        ClientToScreen(window->state.hwnd, &p);
+        window->state.ignoreNextMouseMove = true;
+        SetCursorPos(p.x, p.y);
+        window->state.mouseX = (float)cx;
+        window->state.mouseY = (float)cy;
+        window->state.prevMouseX = (float)cx;
+        window->state.prevMouseY = (float)cy;
+        window->state.mouseDx = 0.0f;
+        window->state.mouseDy = 0.0f;
+    } else {
+        ClipCursor(nullptr);
+        if (window->state.cursorHidden) {
+            while (ShowCursor(TRUE) < 0) {}
+            window->state.cursorHidden = false;
+        }
+        window->state.mouseDx = 0.0f;
+        window->state.mouseDy = 0.0f;
+        window->state.prevMouseX = window->state.mouseX;
+        window->state.prevMouseY = window->state.mouseY;
+    }
 }
