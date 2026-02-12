@@ -151,6 +151,9 @@ For menus/panels/HUD on top of 3D, create a UI renderer bound to the swapchain:
 - `g4f_renderer_create_for_gfx(g4f_gfx*)`
 - then call the regular `g4f_draw_*` functions between your 3D draw and `g4f_gfx_end()`/`g4f_frame3d_end()`
 
+Implementation note:
+- The Direct2D overlay target is rebound automatically when the swapchain backbuffer changes (e.g. resize).
+
 2D renderer focuses on:
 - solid rects
 - lines

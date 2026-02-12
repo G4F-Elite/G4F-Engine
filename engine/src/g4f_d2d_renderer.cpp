@@ -32,6 +32,7 @@ struct g4f_renderer {
     ID2D1DeviceContext* gfxContext = nullptr;
     ID2D1Bitmap1* ctxTargetBitmap = nullptr;
     g4f_gfx* gfx = nullptr;
+    uint64_t boundBackbufferGeneration = 0;
 
     ID2D1SolidColorBrush* brush = nullptr;
 
@@ -141,6 +142,7 @@ static HRESULT g4f_renderer_bind_gfx_backbuffer(g4f_renderer* renderer) {
     if (FAILED(hr) || !renderer->ctxTargetBitmap) return FAILED(hr) ? hr : E_FAIL;
 
     renderer->gfxContext->SetTarget(renderer->ctxTargetBitmap);
+    renderer->boundBackbufferGeneration = renderer->gfx->backbufferGeneration;
     return S_OK;
 }
 
@@ -154,10 +156,7 @@ void g4f_renderer_begin(g4f_renderer* renderer) {
     }
     if (renderer->gfxContext && renderer->gfx) {
         if (renderer->gfx->ctx) renderer->gfx->ctx->Flush();
-        if (!renderer->ctxTargetBitmap) {
-            if (FAILED(g4f_renderer_bind_gfx_backbuffer(renderer))) return;
-        } else {
-            // Rebind each frame in case swapchain buffer changed.
+        if (!renderer->ctxTargetBitmap || renderer->boundBackbufferGeneration != renderer->gfx->backbufferGeneration) {
             if (FAILED(g4f_renderer_bind_gfx_backbuffer(renderer))) return;
         }
         renderer->gfxContext->BeginDraw();

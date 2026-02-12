@@ -174,6 +174,7 @@ static bool gfxCreateTargets(g4f_gfx* gfx, int w, int h) {
 
     gfx->cachedW = w;
     gfx->cachedH = h;
+    gfx->backbufferGeneration += 1;
     return true;
 }
 

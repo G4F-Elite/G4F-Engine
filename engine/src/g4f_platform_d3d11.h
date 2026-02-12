@@ -4,12 +4,14 @@
 
 #include <d3d11.h>
 #include <dxgi.h>
+#include <cstdint>
 
 struct g4f_gfx {
     g4f_window* window = nullptr;
     int cachedW = 0;
     int cachedH = 0;
     int vsync = 1;
+    uint64_t backbufferGeneration = 0;
 
     IDXGISwapChain* swapChain = nullptr;
     ID3D11Device* device = nullptr;
