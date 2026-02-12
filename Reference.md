@@ -130,6 +130,7 @@ This engine intentionally avoids loading textures/models from disk for 3D. Inste
 - Culling: `g4f_gfx_material_set_cull` (back/none/front)
 - Meshes: `g4f_gfx_mesh_create_p3n3uv2`
 - Convenience: `g4f_gfx_mesh_create_cube_p3n3uv2`
+- Convenience: `g4f_gfx_mesh_create_plane_xz_p3n3uv2`
 - Draw: `g4f_gfx_draw_mesh` (uses identity model)
 - Draw (lit normals): `g4f_gfx_draw_mesh_xform` (pass model/rotation for correct normals)
 
