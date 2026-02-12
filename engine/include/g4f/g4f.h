@@ -12,6 +12,7 @@ typedef struct g4f_app g4f_app;
 typedef struct g4f_window g4f_window;
 typedef struct g4f_renderer g4f_renderer;
 typedef struct g4f_bitmap g4f_bitmap;
+typedef struct g4f_ctx g4f_ctx;
 
 typedef struct g4f_window_desc {
     const char* title_utf8;
@@ -165,6 +166,20 @@ void g4f_app_destroy(g4f_app* app);
 
 double g4f_time_seconds(const g4f_app* app);
 
+// High-level context (simplest integration):
+// - owns app + window + renderer
+// - computes dt each poll
+g4f_ctx* g4f_ctx_create(const g4f_window_desc* windowDesc);
+void g4f_ctx_destroy(g4f_ctx* ctx);
+int g4f_ctx_poll(g4f_ctx* ctx);       // returns 0 when should close
+double g4f_ctx_time(const g4f_ctx* ctx);
+float g4f_ctx_dt(const g4f_ctx* ctx); // seconds since last poll
+g4f_window* g4f_ctx_window(g4f_ctx* ctx);
+g4f_renderer* g4f_ctx_renderer(g4f_ctx* ctx);
+
+void g4f_frame_begin(g4f_ctx* ctx, uint32_t clearRgba);
+void g4f_frame_end(g4f_ctx* ctx);
+
 // Window.
 g4f_window* g4f_window_create(g4f_app* app, const g4f_window_desc* desc);
 void g4f_window_destroy(g4f_window* window);
@@ -201,4 +216,3 @@ void g4f_draw_bitmap(g4f_renderer* renderer, const g4f_bitmap* bitmap, g4f_rect_
 #ifdef __cplusplus
 } // extern "C"
 #endif
-

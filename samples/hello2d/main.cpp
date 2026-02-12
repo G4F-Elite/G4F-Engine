@@ -3,45 +3,28 @@
 #include "g4f/g4f.h"
 
 int main() {
-    g4f_app_desc appDesc{};
-    g4f_app* app = g4f_app_create(&appDesc);
-    if (!app) {
-        std::fprintf(stderr, "Failed to create g4f_app\n");
-        return 1;
-    }
-
     g4f_window_desc windowDesc{};
     windowDesc.title_utf8 = "G4F Engine - Hello 2D";
     windowDesc.width = 1280;
     windowDesc.height = 720;
     windowDesc.resizable = 1;
 
-    g4f_window* window = g4f_window_create(app, &windowDesc);
-    if (!window) {
-        std::fprintf(stderr, "Failed to create g4f_window\n");
-        g4f_app_destroy(app);
+    g4f_ctx* ctx = g4f_ctx_create(&windowDesc);
+    if (!ctx) {
+        std::fprintf(stderr, "Failed to create g4f_ctx\n");
         return 1;
     }
 
-    g4f_renderer* renderer = g4f_renderer_create(window);
-    if (!renderer) {
-        std::fprintf(stderr, "Failed to create g4f_renderer\n");
-        g4f_window_destroy(window);
-        g4f_app_destroy(app);
-        return 1;
-    }
-
-    double last = g4f_time_seconds(app);
     double fpsAcc = 0.0;
     int fpsFrames = 0;
     double fpsValue = 0.0;
 
-    while (g4f_window_poll(window)) {
+    while (g4f_ctx_poll(ctx)) {
+        g4f_window* window = g4f_ctx_window(ctx);
+        g4f_renderer* renderer = g4f_ctx_renderer(ctx);
         if (g4f_key_pressed(window, G4F_KEY_ESCAPE)) g4f_window_request_close(window);
 
-        double now = g4f_time_seconds(app);
-        double dt = now - last;
-        last = now;
+        double dt = (double)g4f_ctx_dt(ctx);
 
         fpsAcc += dt;
         fpsFrames += 1;
@@ -51,8 +34,7 @@ int main() {
             fpsFrames = 0;
         }
 
-        g4f_renderer_begin(renderer);
-        g4f_renderer_clear(renderer, g4f_rgba_u32(18, 18, 22, 255));
+        g4f_frame_begin(ctx, g4f_rgba_u32(18, 18, 22, 255));
 
         int w = 0, h = 0;
         g4f_window_get_size(window, &w, &h);
@@ -68,12 +50,9 @@ int main() {
         g4f_draw_line(renderer, 40, (float)h - 60, (float)w - 40, (float)h - 60, 2.0f, g4f_rgba_u32(70, 70, 90, 255));
         g4f_draw_text(renderer, "Press ESC to exit", 60, (float)h - 50, 16.0f, g4f_rgba_u32(200, 200, 210, 255));
 
-        g4f_renderer_end(renderer);
+        g4f_frame_end(ctx);
     }
 
-    g4f_renderer_destroy(renderer);
-    g4f_window_destroy(window);
-    g4f_app_destroy(app);
+    g4f_ctx_destroy(ctx);
     return 0;
 }
-
