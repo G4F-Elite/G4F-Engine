@@ -62,6 +62,12 @@ Two levels:
 - Low-level: `g4f_app` + `g4f_window` + `g4f_renderer`
 - High-level: `g4f_ctx` + `g4f_frame_begin/end` (recommended for most apps)
 
+## 3D + UI convenience context
+If you always use 3D + a 2D overlay UI, there is a convenience wrapper:
+- Header: `engine/include/g4f/g4f_ctx3d_ui.h`
+- Owns: `g4f_ctx3d` + overlay `g4f_renderer` + `g4f_ui`
+- Overlay helpers: `g4f_ctx3d_ui_overlay_begin` / `g4f_ctx3d_ui_overlay_end`
+
 ## Math helpers
 Lightweight math for 3D (row-major matrices, row-vector `mul(v, m)` convention):
 - `g4f_mat4_identity`, `g4f_mat4_mul`

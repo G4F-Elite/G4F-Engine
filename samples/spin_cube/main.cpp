@@ -2,6 +2,7 @@
 #include <vector>
 #include "g4f/g4f.h"
 #include "g4f/g4f_camera.h"
+#include "g4f/g4f_ctx3d_ui.h"
 #include "g4f/g4f_ui.h"
 
 int main() {
@@ -11,13 +12,13 @@ int main() {
     windowDesc.height = 720;
     windowDesc.resizable = 1;
 
-    g4f_ctx3d* ctx = g4f_ctx3d_create(&windowDesc);
+    g4f_ctx3d_ui* ctx = g4f_ctx3d_ui_create(&windowDesc);
     if (!ctx) {
-        std::fprintf(stderr, "Failed to create g4f_ctx3d\n");
+        std::fprintf(stderr, "Failed to create g4f_ctx3d_ui\n");
         return 1;
     }
 
-    g4f_gfx* gfx = g4f_ctx3d_gfx(ctx);
+    g4f_gfx* gfx = g4f_ctx3d_ui_gfx(ctx);
     g4f_gfx_mesh* cube = g4f_gfx_mesh_create_cube_p3n3uv2(gfx, 1.0f);
     g4f_gfx_mesh* floorMesh = g4f_gfx_mesh_create_plane_xz_p3n3uv2(gfx, 12.0f, 6.0f);
     const int checkerW = 128;
@@ -52,39 +53,23 @@ int main() {
         g4f_gfx_texture_destroy(checker);
         g4f_gfx_mesh_destroy(floorMesh);
         g4f_gfx_mesh_destroy(cube);
-        g4f_ctx3d_destroy(ctx);
+        g4f_ctx3d_ui_destroy(ctx);
         return 1;
     }
 
-    g4f_renderer* ui = g4f_renderer_create_for_gfx(gfx);
-    if (!ui) {
-        std::fprintf(stderr, "Failed to create UI renderer for gfx\n");
-        g4f_gfx_material_destroy(mtlUnlit);
-        g4f_gfx_material_destroy(mtlLit);
-        g4f_gfx_texture_destroy(checker);
-        g4f_gfx_mesh_destroy(floorMesh);
-        g4f_gfx_mesh_destroy(cube);
-        g4f_ctx3d_destroy(ctx);
-        return 1;
-    }
-    g4f_ui* uiState = g4f_ui_create();
-    if (!uiState) {
-        g4f_renderer_destroy(ui);
-        g4f_ctx3d_destroy(ctx);
-        return 1;
-    }
+    g4f_ui* uiState = g4f_ctx3d_ui_ui(ctx);
 
     g4f_camera_fps cam = g4f_camera_fps_default();
 
-    while (g4f_ctx3d_poll(ctx)) {
-        g4f_window* window = g4f_ctx3d_window(ctx);
+    while (g4f_ctx3d_ui_poll(ctx)) {
+        g4f_window* window = g4f_ctx3d_ui_window(ctx);
         if (g4f_key_pressed(window, G4F_KEY_ESCAPE)) g4f_window_request_close(window);
 
         if (g4f_mouse_pressed(window, G4F_MOUSE_BUTTON_RIGHT)) g4f_window_set_cursor_captured(window, 1);
         if (!g4f_mouse_down(window, G4F_MOUSE_BUTTON_RIGHT)) g4f_window_set_cursor_captured(window, 0);
         if (!g4f_window_cursor_captured(window)) g4f_window_set_cursor_visible(window, 1);
 
-        g4f_camera_fps_update(&cam, window, g4f_ctx3d_dt(ctx));
+        g4f_camera_fps_update(&cam, window, g4f_ctx3d_ui_dt(ctx));
 
         // Read UI store (from previous frame) to drive 3D before drawing the overlay UI.
         float slider = g4f_ui_store_get_f(uiState, "slider", 0.42f);
@@ -113,9 +98,9 @@ int main() {
         g4f_gfx_material_set_cull(mtlUnlit, cullNone ? 1 : 0);
         g4f_gfx_material_set_cull(mtlLit, cullNone ? 1 : 0);
 
-        g4f_frame3d_begin(ctx, g4f_rgba_u32(14, 14, 18, 255));
+        g4f_ctx3d_ui_frame3d_begin(ctx, g4f_rgba_u32(14, 14, 18, 255));
 
-        float t = (float)g4f_ctx3d_time(ctx);
+        float t = (float)g4f_ctx3d_ui_time(ctx);
         if (checker) {
             int phase = (int)(t * 10.0f);
             for (int y = 0; y < checkerH; y++) {
@@ -145,8 +130,7 @@ int main() {
 
         g4f_gfx_draw_mesh_xform(gfx, cube, lit ? mtlLit : mtlUnlit, &model, &mvp);
 
-        g4f_renderer_begin(ui);
-        g4f_ui_begin(uiState, ui, window);
+        g4f_ctx3d_ui_overlay_begin(ctx);
         g4f_ui_panel_begin_scroll(uiState, "G4F SPIN CUBE", g4f_rect_f{24, 24, 420, 240});
         g4f_ui_text_wrapped(uiState, "D3D11 render + Direct2D UI overlay.\nHold RMB: capture mouse + FPS camera (WASD, Space/Ctrl). Alt-Tab releases capture.\nWheel: scroll. UP/DOWN or W/S: focus. TAB: cycle focus. ENTER/SPACE: activate. LEFT/RIGHT or A/D: slider.", 16.0f);
         g4f_ui_layout_spacer(uiState, 6.0f);
@@ -187,19 +171,16 @@ int main() {
         g4f_ui_layout_spacer(uiState, 10.0f);
         g4f_ui_text_wrapped(uiState, "Long text to force scrolling. Long text to force scrolling. Long text to force scrolling. Long text to force scrolling. Long text to force scrolling.", 14.0f);
         g4f_ui_panel_end(uiState);
-        g4f_ui_end(uiState);
-        g4f_renderer_end(ui);
+        g4f_ctx3d_ui_overlay_end(ctx);
 
-        g4f_frame3d_end(ctx);
+        g4f_ctx3d_ui_frame3d_end(ctx);
     }
 
-    g4f_ui_destroy(uiState);
-    g4f_renderer_destroy(ui);
     g4f_gfx_material_destroy(mtlUnlit);
     g4f_gfx_material_destroy(mtlLit);
     g4f_gfx_texture_destroy(checker);
     g4f_gfx_mesh_destroy(floorMesh);
     g4f_gfx_mesh_destroy(cube);
-    g4f_ctx3d_destroy(ctx);
+    g4f_ctx3d_ui_destroy(ctx);
     return 0;
 }
