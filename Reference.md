@@ -68,6 +68,16 @@ Lightweight math for 3D (row-major matrices, row-vector `mul(v, m)` convention):
 - `g4f_mat4_translation`, `g4f_mat4_rotation_x`, `g4f_mat4_rotation_y`
 - `g4f_mat4_perspective`, `g4f_mat4_look_at`
 
+## Mouse delta + cursor capture
+For 3D camera controls:
+- Per-frame mouse delta: `g4f_mouse_dx`, `g4f_mouse_dy`
+- Capture/hide cursor + relative mode: `g4f_window_set_cursor_captured`
+
+## FPS camera helper
+- Header: `engine/include/g4f/g4f_camera.h`
+- `g4f_camera_fps_default`, `g4f_camera_fps_update`
+- `g4f_camera_fps_view`, `g4f_camera_fps_proj`
+
 ## UI (menus/panels)
 Immediate-mode UI helper (no editor, all in code):
 - Header: `engine/include/g4f/g4f_ui.h`
