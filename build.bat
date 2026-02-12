@@ -73,12 +73,20 @@ echo === Build: engine tests ===
 %CXX% %CXXFLAGS% %INC_ENGINE% tests\engine_keycodes_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\engine_keycodes_tests.exe" || exit /b 1
 %CXX% %CXXFLAGS% %INC_ENGINE% tests\ui_layout_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\ui_layout_tests.exe" || exit /b 1
 %CXX% %CXXFLAGS% %INC_ENGINE% tests\math_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\math_tests.exe" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\camera_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\camera_tests.exe" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\ctx2d_smoke_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\ctx2d_smoke_tests.exe" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\ui_widget_smoke_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\ui_widget_smoke_tests.exe" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\gfx_api_smoke_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_3D% -o "%BIN%\gfx_api_smoke_tests.exe" || exit /b 1
 %CXX% %CXXFLAGS% %INC_ENGINE% tests\gfx_smoke_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_3D% -o "%BIN%\gfx_smoke_tests.exe" || exit /b 1
 
 echo === Run: engine tests ===
 call :run_with_timeout "%BIN%\engine_keycodes_tests.exe" 10000 || exit /b 1
 call :run_with_timeout "%BIN%\ui_layout_tests.exe" 10000 || exit /b 1
 call :run_with_timeout "%BIN%\math_tests.exe" 10000 || exit /b 1
+call :run_with_timeout "%BIN%\camera_tests.exe" 15000 || exit /b 1
+call :run_with_timeout "%BIN%\ctx2d_smoke_tests.exe" 15000 || exit /b 1
+call :run_with_timeout "%BIN%\ui_widget_smoke_tests.exe" 15000 || exit /b 1
+call :run_with_timeout "%BIN%\gfx_api_smoke_tests.exe" 20000 || exit /b 1
 call :run_with_timeout "%BIN%\gfx_smoke_tests.exe" 15000 || exit /b 1
 
 if exist "Backrooms-master\tests" (
