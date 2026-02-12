@@ -101,6 +101,13 @@ int main(){
 }
 ```
 
+### 3D resources (no files)
+This engine intentionally avoids loading textures/models from disk for 3D. Instead, you create resources from code:
+- Textures: `g4f_gfx_texture_create_rgba8` (pixels come from memory)
+- Materials: `g4f_gfx_material_create_unlit` (tint + optional texture)
+- Meshes: `g4f_gfx_mesh_create_p3n3uv2`
+- Draw: `g4f_gfx_draw_mesh`
+
 ### 3D + UI overlay
 For menus/panels/HUD on top of 3D, create a UI renderer bound to the swapchain:
 - `g4f_renderer_create_for_gfx(g4f_gfx*)`

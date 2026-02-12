@@ -49,6 +49,7 @@ If a future change request arrives without a similarly detailed plan, start by r
 
 Current (bootstrap) state:
 - `g4f_gfx` provides a D3D11 swapchain + a built-in debug cube draw.
+- `g4f_gfx` also supports code-generated meshes/materials/textures (unlit).
 - `g4f_ctx3d` is the simplest 3D integration wrapper.
 - `g4f_ui` supports TAB navigation and a usable `g4f_ui_input_text_k` (mouse caret/drag selection + horizontal scroll).
 
