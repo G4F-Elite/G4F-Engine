@@ -3,6 +3,11 @@ setlocal EnableExtensions EnableDelayedExpansion
 
 REM G4F-Engine build for Win64 MinGW-w64.
 
+set "EXIT_CODE=0"
+set "ROOT=%~dp0"
+set "ORIG_DIR=%CD%"
+cd /d "%ROOT%" || (echo ERROR: failed to cd to repo root: "%ROOT%" & exit /b 1)
+
 set "CXX=g++"
 set "AR=ar"
 
@@ -11,16 +16,17 @@ set "OBJ=%OUT%\obj"
 set "LIB=%OUT%\lib"
 set "BIN=%OUT%\bin"
 
-if "%1"=="clean" (
+if /i "%1"=="clean" (
   if exist "%OUT%" rmdir /s /q "%OUT%"
   echo Cleaned "%OUT%".
-  exit /b 0
+  goto :end
 )
 
 where %CXX% >nul 2>nul
 if errorlevel 1 (
   echo ERROR: g++ not found in PATH.
-  exit /b 1
+  set "EXIT_CODE=1"
+  goto :end
 )
 
 if not exist "%OBJ%\engine" mkdir "%OBJ%\engine"
@@ -29,6 +35,7 @@ if not exist "%BIN%" mkdir "%BIN%"
 if not exist "%BIN%\backrooms-tests" mkdir "%BIN%\backrooms-tests"
 
 set "CXXFLAGS=-std=c++20 -O2 -g -Wall -Wextra -Wpedantic"
+set "CXXFLAGS_BACKROOMS=%CXXFLAGS% -fno-strict-aliasing"
 set "INC_ENGINE=-Iengine\include"
 set "INC_COMPAT=-Icompat\include"
 
@@ -50,54 +57,54 @@ exit /b %errorlevel%
 echo === Build: engine (static lib) ===
 set "ENGINE_OBJ=%OBJ%\engine"
 
-%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_utf8_win32.cpp -o "%ENGINE_OBJ%\g4f_utf8_win32.o" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_error.cpp -o "%ENGINE_OBJ%\g4f_error.o" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_math.cpp -o "%ENGINE_OBJ%\g4f_math.o" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_camera.cpp -o "%ENGINE_OBJ%\g4f_camera.o" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_keycodes_win32.cpp -o "%ENGINE_OBJ%\g4f_keycodes_win32.o" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_win32_window.cpp -o "%ENGINE_OBJ%\g4f_win32_window.o" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_d2d_renderer.cpp -o "%ENGINE_OBJ%\g4f_d2d_renderer.o" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_ctx.cpp -o "%ENGINE_OBJ%\g4f_ctx.o" || exit /b 1
-	%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_d3d11_gfx.cpp -o "%ENGINE_OBJ%\g4f_d3d11_gfx.o" || exit /b 1
-	%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_ctx3d.cpp -o "%ENGINE_OBJ%\g4f_ctx3d.o" || exit /b 1
-	%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_ctx3d_ui.cpp -o "%ENGINE_OBJ%\g4f_ctx3d_ui.o" || exit /b 1
-	%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_ui.cpp -o "%ENGINE_OBJ%\g4f_ui.o" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_utf8_win32.cpp -o "%ENGINE_OBJ%\g4f_utf8_win32.o" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_error.cpp -o "%ENGINE_OBJ%\g4f_error.o" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_math.cpp -o "%ENGINE_OBJ%\g4f_math.o" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_camera.cpp -o "%ENGINE_OBJ%\g4f_camera.o" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_keycodes_win32.cpp -o "%ENGINE_OBJ%\g4f_keycodes_win32.o" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_win32_window.cpp -o "%ENGINE_OBJ%\g4f_win32_window.o" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_d2d_renderer.cpp -o "%ENGINE_OBJ%\g4f_d2d_renderer.o" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_ctx.cpp -o "%ENGINE_OBJ%\g4f_ctx.o" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_d3d11_gfx.cpp -o "%ENGINE_OBJ%\g4f_d3d11_gfx.o" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_ctx3d.cpp -o "%ENGINE_OBJ%\g4f_ctx3d.o" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_ctx3d_ui.cpp -o "%ENGINE_OBJ%\g4f_ctx3d_ui.o" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_ui.cpp -o "%ENGINE_OBJ%\g4f_ui.o" || goto :fail
 
-	%AR% rcs "%LIB%\libg4f.a" "%ENGINE_OBJ%\g4f_utf8_win32.o" "%ENGINE_OBJ%\g4f_error.o" "%ENGINE_OBJ%\g4f_math.o" "%ENGINE_OBJ%\g4f_camera.o" "%ENGINE_OBJ%\g4f_keycodes_win32.o" "%ENGINE_OBJ%\g4f_win32_window.o" "%ENGINE_OBJ%\g4f_d2d_renderer.o" "%ENGINE_OBJ%\g4f_ctx.o" "%ENGINE_OBJ%\g4f_d3d11_gfx.o" "%ENGINE_OBJ%\g4f_ctx3d.o" "%ENGINE_OBJ%\g4f_ctx3d_ui.o" "%ENGINE_OBJ%\g4f_ui.o" || exit /b 1
+%AR% rcs "%LIB%\libg4f.a" "%ENGINE_OBJ%\g4f_utf8_win32.o" "%ENGINE_OBJ%\g4f_error.o" "%ENGINE_OBJ%\g4f_math.o" "%ENGINE_OBJ%\g4f_camera.o" "%ENGINE_OBJ%\g4f_keycodes_win32.o" "%ENGINE_OBJ%\g4f_win32_window.o" "%ENGINE_OBJ%\g4f_d2d_renderer.o" "%ENGINE_OBJ%\g4f_ctx.o" "%ENGINE_OBJ%\g4f_d3d11_gfx.o" "%ENGINE_OBJ%\g4f_ctx3d.o" "%ENGINE_OBJ%\g4f_ctx3d_ui.o" "%ENGINE_OBJ%\g4f_ui.o" || goto :fail
 
 echo === Build: samples ===
-%CXX% %CXXFLAGS% %INC_ENGINE% samples\hello2d\main.cpp -L"%LIB%" -lg4f %LD_ENGINE% -o "%BIN%\hello2d.exe" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% samples\backrooms_menu_smoke\main.cpp -L"%LIB%" -lg4f %LD_ENGINE% -o "%BIN%\backrooms_menu_smoke.exe" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% samples\spin_cube\main.cpp -L"%LIB%" -lg4f %LD_ENGINE_3D% -o "%BIN%\spin_cube.exe" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% samples\hello2d\main.cpp -L"%LIB%" -lg4f %LD_ENGINE% -o "%BIN%\hello2d.exe" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% samples\backrooms_menu_smoke\main.cpp -L"%LIB%" -lg4f %LD_ENGINE% -o "%BIN%\backrooms_menu_smoke.exe" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% samples\spin_cube\main.cpp -L"%LIB%" -lg4f %LD_ENGINE_3D% -o "%BIN%\spin_cube.exe" || goto :fail
 
 echo === Build: engine tests ===
-%CXX% %CXXFLAGS% %INC_ENGINE% tests\engine_keycodes_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\engine_keycodes_tests.exe" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% tests\ui_layout_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\ui_layout_tests.exe" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% tests\math_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\math_tests.exe" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% tests\error_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\error_tests.exe" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% tests\camera_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\camera_tests.exe" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% tests\ctx2d_smoke_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\ctx2d_smoke_tests.exe" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% tests\ui_widget_smoke_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\ui_widget_smoke_tests.exe" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% tests\gfx_api_smoke_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_3D% -o "%BIN%\gfx_api_smoke_tests.exe" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% tests\gfx_smoke_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_3D% -o "%BIN%\gfx_smoke_tests.exe" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\engine_keycodes_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\engine_keycodes_tests.exe" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\ui_layout_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\ui_layout_tests.exe" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\math_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\math_tests.exe" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\error_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\error_tests.exe" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\camera_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\camera_tests.exe" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\ctx2d_smoke_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\ctx2d_smoke_tests.exe" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\ui_widget_smoke_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\ui_widget_smoke_tests.exe" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\gfx_api_smoke_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_3D% -o "%BIN%\gfx_api_smoke_tests.exe" || goto :fail
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\gfx_smoke_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_3D% -o "%BIN%\gfx_smoke_tests.exe" || goto :fail
 
 echo === Run: engine tests ===
-call :run_with_timeout "%BIN%\engine_keycodes_tests.exe" 10000 || exit /b 1
-call :run_with_timeout "%BIN%\ui_layout_tests.exe" 10000 || exit /b 1
-call :run_with_timeout "%BIN%\math_tests.exe" 10000 || exit /b 1
-call :run_with_timeout "%BIN%\error_tests.exe" 10000 || exit /b 1
-call :run_with_timeout "%BIN%\camera_tests.exe" 15000 || exit /b 1
-call :run_with_timeout "%BIN%\ctx2d_smoke_tests.exe" 15000 || exit /b 1
-call :run_with_timeout "%BIN%\ui_widget_smoke_tests.exe" 15000 || exit /b 1
-call :run_with_timeout "%BIN%\gfx_api_smoke_tests.exe" 20000 || exit /b 1
-call :run_with_timeout "%BIN%\gfx_smoke_tests.exe" 15000 || exit /b 1
+call :run_with_timeout "%BIN%\engine_keycodes_tests.exe" 10000 || goto :fail
+call :run_with_timeout "%BIN%\ui_layout_tests.exe" 10000 || goto :fail
+call :run_with_timeout "%BIN%\math_tests.exe" 10000 || goto :fail
+call :run_with_timeout "%BIN%\error_tests.exe" 10000 || goto :fail
+call :run_with_timeout "%BIN%\camera_tests.exe" 15000 || goto :fail
+call :run_with_timeout "%BIN%\ctx2d_smoke_tests.exe" 15000 || goto :fail
+call :run_with_timeout "%BIN%\ui_widget_smoke_tests.exe" 15000 || goto :fail
+call :run_with_timeout "%BIN%\gfx_api_smoke_tests.exe" 20000 || goto :fail
+call :run_with_timeout "%BIN%\gfx_smoke_tests.exe" 15000 || goto :fail
 
 if exist "Backrooms-master\tests" (
   echo === Build: Backrooms tests [no GLFW] ===
   for %%F in (Backrooms-master\tests\*.cpp) do (
     set "NAME=%%~nF"
     echo [Backrooms] %%~nxF
-    %CXX% %CXXFLAGS% %INC_COMPAT% "%%F" -o "%BIN%\backrooms-tests\!NAME!.exe" %LD_BACKROOMS% || exit /b 1
+    %CXX% %CXXFLAGS_BACKROOMS% %INC_COMPAT% "%%F" -o "%BIN%\backrooms-tests\!NAME!.exe" %LD_BACKROOMS% || goto :fail
   )
 
   echo === Run: Backrooms tests ===
@@ -105,11 +112,19 @@ if exist "Backrooms-master\tests" (
     echo [Backrooms] %%~nxE
     set "EXE=%%~fE"
     set "TIMEOUT_MS=60000"
-    call :run_with_timeout "!EXE!" !TIMEOUT_MS! || exit /b 1
+    call :run_with_timeout "!EXE!" !TIMEOUT_MS! || goto :fail
   )
 ) else (
   echo === Skip: Backrooms tests [Backrooms-master not found] ===
 )
 
 echo === OK ===
-exit /b 0
+goto :end
+
+:fail
+set "EXIT_CODE=1"
+goto :end
+
+:end
+cd /d "%ORIG_DIR%" >nul 2>nul
+exit /b %EXIT_CODE%
