@@ -125,6 +125,7 @@ This engine intentionally avoids loading textures/models from disk for 3D. Inste
 - Convenience: `g4f_gfx_texture_create_solid_rgba8`, `g4f_gfx_texture_create_checker_rgba8`
 - Materials: `g4f_gfx_material_create_unlit` (tint + optional texture + alpha/depth flags)
 - Runtime toggles: `g4f_gfx_material_set_alpha_blend`, `g4f_gfx_material_set_depth`
+- Culling: `g4f_gfx_material_set_cull` (back/none/front)
 - Meshes: `g4f_gfx_mesh_create_p3n3uv2`
 - Convenience: `g4f_gfx_mesh_create_cube_p3n3uv2`
 - Draw: `g4f_gfx_draw_mesh`
