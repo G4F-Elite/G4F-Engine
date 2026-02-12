@@ -60,10 +60,12 @@ echo === Build: samples ===
 echo === Build: engine tests ===
 %CXX% %CXXFLAGS% %INC_ENGINE% tests\engine_keycodes_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\engine_keycodes_tests.exe" || exit /b 1
 %CXX% %CXXFLAGS% %INC_ENGINE% tests\ui_layout_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\ui_layout_tests.exe" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\math_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\math_tests.exe" || exit /b 1
 
 echo === Run: engine tests ===
 "%BIN%\engine_keycodes_tests.exe" || exit /b 1
 "%BIN%\ui_layout_tests.exe" || exit /b 1
+"%BIN%\math_tests.exe" || exit /b 1
 
 echo === Build: Backrooms tests (no GLFW) ===
 for %%F in (Backrooms-master\tests\*.cpp) do (
