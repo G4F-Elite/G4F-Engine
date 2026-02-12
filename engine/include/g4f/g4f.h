@@ -13,6 +13,8 @@ typedef struct g4f_window g4f_window;
 typedef struct g4f_renderer g4f_renderer;
 typedef struct g4f_bitmap g4f_bitmap;
 typedef struct g4f_ctx g4f_ctx;
+typedef struct g4f_gfx g4f_gfx;
+typedef struct g4f_ctx3d g4f_ctx3d;
 
 typedef struct g4f_window_desc {
     const char* title_utf8;
@@ -179,6 +181,29 @@ g4f_renderer* g4f_ctx_renderer(g4f_ctx* ctx);
 
 void g4f_frame_begin(g4f_ctx* ctx, uint32_t clearRgba);
 void g4f_frame_end(g4f_ctx* ctx);
+
+// 3D (D3D11) — foundational API, no asset files:
+// - shaders/materials/geometry are generated in code
+g4f_gfx* g4f_gfx_create(g4f_window* window);
+void g4f_gfx_destroy(g4f_gfx* gfx);
+void g4f_gfx_begin(g4f_gfx* gfx, uint32_t clearRgba);
+void g4f_gfx_end(g4f_gfx* gfx); // presents
+
+// High-level 3D context (simplest 3D integration).
+g4f_ctx3d* g4f_ctx3d_create(const g4f_window_desc* windowDesc);
+void g4f_ctx3d_destroy(g4f_ctx3d* ctx);
+int g4f_ctx3d_poll(g4f_ctx3d* ctx);       // returns 0 when should close
+double g4f_ctx3d_time(const g4f_ctx3d* ctx);
+float g4f_ctx3d_dt(const g4f_ctx3d* ctx); // seconds since last poll
+g4f_window* g4f_ctx3d_window(g4f_ctx3d* ctx);
+g4f_gfx* g4f_ctx3d_gfx(g4f_ctx3d* ctx);
+
+void g4f_frame3d_begin(g4f_ctx3d* ctx, uint32_t clearRgba);
+void g4f_frame3d_end(g4f_ctx3d* ctx);
+
+// Minimal built-in 3D draw for early bring-up (procedural cube).
+// Intended as a temporary scaffolding API during engine bootstrap.
+void g4f_gfx_draw_debug_cube(g4f_gfx* gfx, float timeSeconds);
 
 // Window.
 g4f_window* g4f_window_create(g4f_app* app, const g4f_window_desc* desc);
