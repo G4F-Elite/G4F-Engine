@@ -37,12 +37,6 @@ int main() {
         g4f_window* window = g4f_ctx_window(ctx);
         g4f_renderer* renderer = g4f_ctx_renderer(ctx);
         if (g4f_key_pressed(window, G4F_KEY_ESCAPE)) running = false;
-        if (g4f_key_pressed(window, G4F_KEY_UP)) selected = (selected + (int)(sizeof(kItems) / sizeof(kItems[0])) - 1) % (int)(sizeof(kItems) / sizeof(kItems[0]));
-        if (g4f_key_pressed(window, G4F_KEY_DOWN)) selected = (selected + 1) % (int)(sizeof(kItems) / sizeof(kItems[0]));
-
-        if (g4f_key_pressed(window, G4F_KEY_ENTER) || g4f_key_pressed(window, G4F_KEY_SPACE)) {
-            if (std::strcmp(kItems[selected].label, "QUIT") == 0) running = false;
-        }
 
         g4f_frame_begin(ctx, g4f_rgba_u32(10, 10, 12, 255));
         int w = 0, h = 0;
@@ -57,7 +51,10 @@ int main() {
             g4f_ui_push_id(ui, kItems[i].label);
             int clicked = g4f_ui_button(ui, kItems[i].label);
             g4f_ui_pop_id(ui);
-            if (clicked) selected = i;
+            if (clicked) {
+                selected = i;
+                if (std::strcmp(kItems[i].label, "QUIT") == 0) running = false;
+            }
         }
 
         g4f_ui_layout_spacer(ui, 8.0f);
