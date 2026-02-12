@@ -30,6 +30,34 @@ int main() {
     assert(gfx == nullptr);
     expectErrorContains("g4f_gfx_create");
 
+    // 2D bitmap validation.
+    g4f_clear_error();
+    g4f_bitmap* bitmap0 = g4f_bitmap_load(nullptr, "missing.png");
+    assert(bitmap0 == nullptr);
+    expectErrorContains("g4f_bitmap_load");
+
+    g4f_clear_error();
+    const uint32_t pixel = 0xFFFFFFFFu;
+    g4f_bitmap* bitmap1 = g4f_bitmap_create_rgba8(nullptr, 1, 1, &pixel, 4);
+    assert(bitmap1 == nullptr);
+    expectErrorContains("g4f_bitmap_create_rgba8");
+
+    // 3D resource validation.
+    g4f_clear_error();
+    g4f_gfx_texture* tex0 = g4f_gfx_texture_create_checker_rgba8(nullptr, 4, 4, 8, 0xFF0000FFu, 0xFFFFFFFFu);
+    assert(tex0 == nullptr);
+    expectErrorContains("g4f_gfx_texture_create_checker_rgba8");
+
+    g4f_clear_error();
+    g4f_gfx_material* material0 = g4f_gfx_material_create_unlit(nullptr, nullptr);
+    assert(material0 == nullptr);
+    expectErrorContains("g4f_gfx_material_create_unlit");
+
+    g4f_clear_error();
+    g4f_gfx_mesh* mesh0 = g4f_gfx_mesh_create_p3n3uv2(nullptr, nullptr, 0, nullptr, 0);
+    assert(mesh0 == nullptr);
+    expectErrorContains("g4f_gfx_mesh_create_p3n3uv2");
+
     // Window create validation.
     g4f_app_desc appDesc{};
     g4f_app* app = g4f_app_create(&appDesc);
