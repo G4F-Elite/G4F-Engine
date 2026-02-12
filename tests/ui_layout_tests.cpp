@@ -28,7 +28,17 @@ static void testLayoutNextAdvancesCursor() {
 
 int main() {
     testLayoutNextAdvancesCursor();
+    {
+        g4f_ui* ui = g4f_ui_create();
+        int a = g4f_ui_store_get_i(ui, "x", 7);
+        int b = g4f_ui_store_get_i(ui, "x", 9);
+        assert(a == 7);
+        assert(b == 7);
+        g4f_ui_store_set_i(ui, "x", 11);
+        int c = g4f_ui_store_get_i(ui, "x", 0);
+        assert(c == 11);
+        g4f_ui_destroy(ui);
+    }
     std::cout << "ui_layout_tests: OK\n";
     return 0;
 }
-

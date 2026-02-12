@@ -43,10 +43,10 @@ int main() {
         g4f_ui_text_wrapped(uiState, "D3D11 render + Direct2D UI overlay.\nWheel: scroll. UP/DOWN or W/S: focus. ENTER/SPACE: activate. LEFT/RIGHT or A/D: slider.", 16.0f);
         g4f_ui_layout_spacer(uiState, 6.0f);
         g4f_ui_separator(uiState);
-        int show = 1;
-        g4f_ui_checkbox(uiState, "dummy checkbox", &show);
-        float f = 0.42f;
-        g4f_ui_slider_float(uiState, "dummy slider", &f, 0.0f, 1.0f);
+        int show = 0;
+        g4f_ui_checkbox_k(uiState, "checkbox (stored)", "show", 1, &show);
+        float f = 0.0f;
+        g4f_ui_slider_float_k(uiState, "slider (stored)", "slider", 0.42f, 0.0f, 1.0f, &f);
         g4f_ui_layout_spacer(uiState, 10.0f);
         g4f_ui_text_wrapped(uiState, "Long text to force scrolling. Long text to force scrolling. Long text to force scrolling. Long text to force scrolling. Long text to force scrolling.", 14.0f);
         g4f_ui_panel_end(uiState);

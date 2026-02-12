@@ -58,11 +58,11 @@ int main() {
         }
 
         g4f_ui_layout_spacer(ui, 8.0f);
-        int chk = (selected == 1) ? 1 : 0;
-        g4f_ui_checkbox(ui, "dummy checkbox (state not persisted)", &chk);
+        int chk = 0;
+        g4f_ui_checkbox_k(ui, "checkbox (stored)", "chk", 0, &chk);
 
-        float vol = 0.65f;
-        g4f_ui_slider_float(ui, "dummy slider", &vol, 0.0f, 1.0f);
+        float vol = 0.0f;
+        g4f_ui_slider_float_k(ui, "slider (stored)", "vol", 0.65f, 0.0f, 1.0f, &vol);
 
         g4f_ui_panel_end(ui);
         g4f_ui_end(ui);
