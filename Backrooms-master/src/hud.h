@@ -1,0 +1,401 @@
+#pragma once
+#include "menu_hud.h"
+#include "coop.h"
+#include "perf_overlay.h"
+#include "progression.h"
+#include "smile_event.h"
+#include "item_types.h"
+
+inline void drawHudText(const char* s, float x, float y, float sc, float r, float g, float b, float a = 0.95f) {
+    drawText(s, x - 0.002f, y - 0.002f, sc, 0.0f, 0.0f, 0.0f, a * 0.72f);
+    drawText(s, x, y, sc, r, g, b, a);
+}
+
+inline void drawHudTextCentered(const char* s, float x, float y, float sc, float r, float g, float b, float a = 0.95f) {
+    drawTextCentered(s, x - 0.002f, y - 0.002f, sc, 0.0f, 0.0f, 0.0f, a * 0.72f);
+    drawTextCentered(s, x, y, sc, r, g, b, a);
+}
+
+inline void drawEyeMarker(float sx, float sy, float scale, float alpha) {
+    float w = 0.050f * scale;
+    float h = 0.022f * scale;
+    drawOverlayRectNdc(sx - w, sy - h, sx + w, sy + h, 0.46f, 0.08f, 0.08f, alpha * 0.62f);
+    drawOverlayRectNdc(sx - w * 0.86f, sy - h * 0.68f, sx + w * 0.86f, sy + h * 0.68f, 0.84f, 0.16f, 0.14f, alpha * 0.92f);
+    drawOverlayRectNdc(sx - w * 0.28f, sy - h * 0.58f, sx + w * 0.28f, sy + h * 0.58f, 0.05f, 0.02f, 0.02f, alpha);
+    drawOverlayRectNdc(sx - w * 0.10f, sy - h * 0.20f, sx + w * 0.10f, sy + h * 0.20f, 0.90f, 0.30f, 0.24f, alpha);
+}
+
+void drawUI(){
+    if(gameState==STATE_MENU) drawMenu(vhsTime);
+    else if(gameState==STATE_GUIDE) drawGuideScreen();
+    else if(gameState==STATE_MULTI) drawMultiMenuScreen(vhsTime);
+    else if(gameState==STATE_MULTI_HOST) drawHostLobbyScreen(vhsTime,netMgr.getPlayerCount());
+    else if(gameState==STATE_MULTI_JOIN) drawJoinMenuScreen(vhsTime);
+    else if(gameState==STATE_MULTI_WAIT) drawWaitingScreen(vhsTime);
+    else if(gameState==STATE_PAUSE){
+        if(multiState==MULTI_IN_GAME) drawMultiPause(netMgr.getPlayerCount());
+        else drawPause();
+    }else if(gameState==STATE_SETTINGS||gameState==STATE_SETTINGS_PAUSE) drawSettings(gameState==STATE_SETTINGS_PAUSE);
+    else if(gameState==STATE_KEYBINDS||gameState==STATE_KEYBINDS_PAUSE) drawKeybindsMenu(gameState==STATE_KEYBINDS_PAUSE, menuSel, keybindCaptureIndex);
+    else if(gameState==STATE_INTRO) drawIntro(storyMgr.introLine,storyMgr.introTimer,storyMgr.introLineTime,INTRO_LINES);
+    else if(gameState==STATE_NOTE&&storyMgr.readingNote&&storyMgr.currentNote>=0)
+        drawNote(storyMgr.currentNote,NOTE_TITLES[storyMgr.currentNote],NOTE_CONTENTS[storyMgr.currentNote]);
+    else if(gameState==STATE_GAME){
+        gSurvivalTime=survivalTime;
+        if(playerEscaped) drawEscape(vhsTime);
+        else if(isPlayerDead) drawDeath(vhsTime);
+        else{
+            drawDamageOverlay(damageFlash,playerHealth);
+            drawSurvivalTime(survivalTime);
+
+            // === DEBUG MODE: FPS/telemetry overlay ===
+            if(settings.debugMode){
+                char fpsBuf[48];
+                snprintf(fpsBuf,48,"FPS %.0f",gPerfFpsSmoothed);
+                char fgBuf[80];
+                formatFrameGenPipeline(fgBuf,80,gPerfRefreshHz,gPerfFrameGenBaseCap,settings.frameGenMode,settings.vsync);
+                char upBuf[96];
+                formatUpscalePipeline(upBuf,96,settings.upscalerMode,renderW,renderH,winW,winH);
+                if(gHudTelemetryVisible){
+                    char pingBuf[48];
+                    if(multiState==MULTI_IN_GAME) snprintf(pingBuf,48,"PING %.0fms",netMgr.rttMs);
+                    else snprintf(pingBuf,48,"PING --");
+                    char netBuf[40];
+                    if(multiState==MULTI_IN_GAME) snprintf(netBuf,40,"NET %s",netMgr.connectionQualityLabel((float)glfwGetTime()));
+                    else snprintf(netBuf,40,"NET --");
+                    char perfRow[300];
+                    snprintf(perfRow,300,"%s | %s | %s | %s | %s",fpsBuf,fgBuf,upBuf,pingBuf,netBuf);
+                    drawHudText(perfRow,-0.95f,0.95f,1.20f,0.88f,0.93f,0.78f,0.98f);
+                }else{
+                    drawHudText("HUD HIDDEN",-0.95f,0.95f,1.00f,0.80f,0.86f,0.74f,0.95f);
+                }
+            }
+
+            if(playerHealth<100)drawHealthBar(playerHealth);
+            if(playerSanity<100)drawSanityBar(playerSanity);
+            drawStaminaBar(playerStamina);
+            if(flashlightBattery<100)drawFlashlightBattery(flashlightBattery,flashlightOn);
+            if(playerDowned){
+                char downBuf[64];
+                snprintf(downBuf,64,"DOWNED %.0fs",playerDownedTimer);
+                drawHudText(downBuf,-0.20f,-0.22f,1.45f,0.96f,0.52f,0.44f,0.95f);
+                drawHudTextCentered("[E] USE PLUSH TO SELF-REVIVE",0.0f,-0.30f,1.2f,0.90f,0.72f,0.62f,0.92f);
+            }
+            {
+                char contractBuf[128];
+                buildVoidShiftObjectiveLine(contractBuf, 128);
+                drawHudText(contractBuf,-0.95f,0.88f,1.08f,0.88f,0.90f,0.72f,0.95f);
+                char supportBuf[128];
+                buildVoidShiftSupportLine(supportBuf, 128);
+                drawHudText(supportBuf,-0.95f,0.85f,0.98f,0.78f,0.88f,0.74f,0.90f);
+                char attBuf[96];
+                if(isParkingLevel(gCurrentLevel)){
+                    snprintf(attBuf,96,"ATTENTION %.0f%%  CO %.0f%%  RESO %.0f%%",attentionLevel,coLevel,resonatorBattery);
+                }else{
+                    snprintf(attBuf,96,"ATTENTION %.0f%%  RESO %.0f%%",attentionLevel,resonatorBattery);
+                }
+                drawHudText(attBuf,-0.95f,0.79f,1.02f,0.78f,0.86f,0.76f,0.92f);
+            }
+            if(activeDeviceSlot == 2){
+                float y = -0.70f;
+                drawOverlayRectNdc(0.48f, y - 0.14f, 0.95f, y + 0.07f, 0.04f, 0.09f, 0.10f, 0.42f);
+                drawOverlayRectNdc(0.49f, y - 0.13f, 0.94f, y + 0.06f, 0.08f, 0.18f, 0.20f, 0.18f);
+                drawHudText("SCANNER",0.52f,y,1.15f,0.55f,0.82f,0.86f,0.92f);
+                if(scannerOverheated){
+                    drawHudText("OVERHEAT",0.52f,y-0.06f,1.05f,0.92f,0.44f,0.30f,0.92f);
+                }else if(scannerHeat > 0.02f){
+                    float h = scannerHeat;
+                    if(h<0.0f) h=0.0f;
+                    if(h>1.0f) h=1.0f;
+                    drawSlider(0.66f,y-0.06f,0.30f,h,0.95f,0.62f,0.20f);
+                }
+                float sig = scannerSignal;
+                if(sig < 0.0f) sig = 0.0f;
+                if(sig > 1.0f) sig = 1.0f;
+                drawSlider(0.66f,y,0.30f,sig,0.45f,0.85f,0.95f);
+            }
+
+            // === DEBUG MODE: full objective block (top-right) ===
+            if(settings.debugMode){
+                float blockX = 0.44f;
+                float blockY = 0.90f;
+                const char* phaseNames[] = {"INTRO","EXPLORATION","SURVIVAL","DESPERATION"};
+                int phaseIdx = (int)storyMgr.getPhase();
+                if(phaseIdx < 0) phaseIdx = 0;
+                if(phaseIdx > 3) phaseIdx = 3;
+                drawHudText("OBJECTIVE",blockX,blockY,1.28f,0.90f,0.94f,0.72f,0.97f);
+                blockY -= 0.07f;
+                if(multiState==MULTI_IN_GAME){
+                    int switchCount = (coop.switchOn[0]?1:0)+(coop.switchOn[1]?1:0);
+                    char objProgress[64];
+                    snprintf(objProgress,64,"SWITCHES %d/2",switchCount);
+                    drawHudText(objProgress,blockX,blockY,1.18f,0.86f,0.90f,0.68f,0.95f);
+                    blockY -= 0.06f;
+                    drawHudText(coop.doorOpen?"DOOR OPEN":"DOOR LOCKED",blockX,blockY,1.16f,0.88f,0.84f,0.62f,0.95f);
+                    blockY -= 0.06f;
+                    if(!coop.doorOpen) drawHudText("ACTION HOLD 2 SWITCHES",blockX,blockY,1.02f,0.82f,0.86f,0.62f,0.90f);
+                    blockY -= 0.06f;
+                }else{
+                    char contractLine[96];
+                    buildVoidShiftObjectiveLine(contractLine, 96);
+                    drawHudText(contractLine,blockX,blockY,1.02f,0.86f,0.90f,0.68f,0.95f);
+                    blockY -= 0.06f;
+                    char sideLine[96];
+                    buildVoidShiftSupportLine(sideLine, 96);
+                    drawHudText(sideLine,blockX,blockY,0.98f,0.78f,0.88f,0.74f,0.91f);
+                    blockY -= 0.06f;
+                    drawHudText(isStoryExitReady()?"EXIT READY":"EXIT LOCKED",blockX,blockY,1.08f,0.72f,0.86f,0.90f,0.93f);
+                    blockY -= 0.06f;
+                    drawHudText(level2VentDone?"ACTION: CONTRACT + VENT ONLINE":"ACTION: COMPLETE CONTRACT STEPS",blockX,blockY,1.00f,0.82f,0.86f,0.62f,0.90f);
+                    blockY -= 0.06f;
+                }
+                char phaseBuf[64];
+                snprintf(phaseBuf,64,"PHASE %s",phaseNames[phaseIdx]);
+                drawHudText(phaseBuf,blockX,blockY,1.14f,0.86f,0.80f,0.56f,0.94f);
+                blockY -= 0.06f;
+                char levelBuf[48];
+                buildLevelLabel(gCurrentLevel, levelBuf, 48);
+                drawHudText(levelBuf,blockX,blockY,1.06f,0.80f,0.86f,0.66f,0.93f);
+                blockY -= 0.06f;
+                char invBuf[64];
+                snprintf(invBuf,64,"SUPPLIES B:%d",invBattery);
+                drawHudText(invBuf,blockX,blockY,1.06f,0.76f,0.86f,0.70f,0.93f);
+                blockY -= 0.06f;
+                if(falseDoorTimer>0) {
+                    drawHudText("EVENT FALSE DOOR SHIFT",blockX,blockY,1.05f,0.95f,0.45f,0.36f,0.92f);
+                    blockY -= 0.05f;
+                }
+            }
+
+            if(multiState==MULTI_IN_GAME && !coop.doorOpen){
+                if(settings.debugMode){
+                    if(nearPoint2D(cam.pos, coop.switches[0], 2.6f)||nearPoint2D(cam.pos, coop.switches[1], 2.6f))
+                        drawHudTextCentered("HOLD SWITCH POSITION",0.0f,-0.35f,1.4f,0.75f,0.8f,0.55f,0.90f);
+                }
+            }
+            if(multiState!=MULTI_IN_GAME){
+                bool nearExit = nearPoint2D(cam.pos, coop.doorPos, 2.4f);
+                if(nearExit && settings.debugMode){
+                    if(isStoryExitReady()) drawHudTextCentered("[E] EXIT LEVEL",0.0f,-0.35f,1.4f,0.75f,0.88f,0.70f,0.95f);
+                    else drawHudTextCentered("COMPLETE CONTRACT TO UNLOCK EXIT",0.0f,-0.35f,1.2f,0.88f,0.72f,0.58f,0.93f);
+                }
+            }else{
+                bool nearExit = nearPoint2D(cam.pos, coop.doorPos, 2.4f);
+                if(nearExit && settings.debugMode){
+                    if(coop.doorOpen && isStoryExitReady()) drawHudTextCentered("[E] EXIT LEVEL",0.0f,-0.35f,1.4f,0.75f,0.88f,0.70f,0.95f);
+                    else drawHudTextCentered("OPEN DOOR + COMPLETE CONTRACT TO EXIT",0.0f,-0.35f,1.25f,0.88f,0.72f,0.58f,0.93f);
+                }
+            }
+            if(nearbyWorldItemId>=0 && settings.debugMode){
+                drawHudTextCentered(worldItemPickupPrompt(nearbyWorldItemType),0.0f,-0.43f,1.4f,0.8f,0.8f,0.55f,0.9f);
+            }
+            if(multiState!=MULTI_IN_GAME){
+                Vec3 resonancePos(0,0,0);
+                if(getVoidShiftResonanceTarget(resonancePos)){
+                    Vec3 d = resonancePos - cam.pos;
+                    d.y = 0;
+                    float dist = d.len();
+                    if(settings.debugMode){
+                        char echoBuf[72];
+                        snprintf(echoBuf,72,"RESONANCE %.0fm",dist);
+                        drawHudText(echoBuf,-0.95f,0.50f,1.18f,0.62f,0.85f,0.86f,0.90f);
+                    }
+                }
+
+                if(settings.debugMode){
+                    float sx = 0.0f, sy = 0.0f;
+                    if(npcCartographerActive && projectToScreen(npcCartographerPos + Vec3(0,1.7f,0), sx, sy)){
+                        drawHudTextCentered("CARTOGRAPHER", sx, sy, 1.0f, 0.76f, 0.90f, 0.74f, 0.92f);
+                    }
+                    if(npcDispatcherActive && projectToScreen(npcDispatcherPhonePos + Vec3(0,1.7f,0), sx, sy)){
+                        drawHudTextCentered("DISPATCH", sx, sy, 1.0f, 0.78f, 0.84f, 0.96f, 0.92f);
+                    }
+                    if(npcLostSurvivorActive && projectToScreen(npcLostSurvivorPos + Vec3(0,1.7f,0), sx, sy)){
+                        drawHudTextCentered("LOST SURVIVOR", sx, sy, 1.0f, 0.92f, 0.78f, 0.64f, 0.92f);
+                    }
+                }
+
+                char actionPrompt[96];
+                buildVoidShiftInteractPrompt(cam.pos, actionPrompt, 96);
+                if(actionPrompt[0] != '\0'){
+                    drawHudTextCentered(actionPrompt,0.0f,-0.43f,1.28f,0.8f,0.84f,0.62f,0.92f);
+                }
+            }
+            if(settings.debugMode && multiState!=MULTI_IN_GAME && echoStatusTimer>0.0f){
+                drawHudTextCentered(echoStatusText,0.0f,0.62f,1.18f,0.7f,0.86f,0.9f,0.92f);
+            }
+            if(minimapEnabled) drawMinimapOverlay();
+            if(storyMgr.hasHallucinations())drawHallucinationEffect((50.0f-playerSanity)/50.0f);
+            if(multiState==MULTI_IN_GAME)drawMultiHUD(netMgr.getPlayerCount(),netMgr.isHost);
+            if(squadCalloutTimer > 0.0f) drawHudTextCentered(squadCalloutText,0.0f,-0.52f,1.08f,0.88f,0.84f,0.62f,0.92f);
+            if(multiState==MULTI_IN_GAME){
+                for(int i=0;i<MAX_PLAYERS;i++){
+                    if(i==netMgr.myId || !netMgr.players[i].active || !netMgr.players[i].hasValidPos) continue;
+                    if(!playerInterpReady[i]) continue;
+                    Vec3 wp = playerRenderPos[i] + Vec3(0, 2.2f, 0);
+                    float sx=0, sy=0;
+                    if(!projectToScreen(wp, sx, sy)) continue;
+                    Vec3 dd = playerRenderPos[i] - cam.pos;
+                    float dist = dd.len();
+                    if(dist > 40.0f) continue;
+                    const char* nm = netMgr.players[i].name[0] ? netMgr.players[i].name : "Player";
+                    drawHudTextCentered(nm, sx, sy, 1.1f, 0.85f, 0.9f, 0.7f, 0.90f);
+                }
+
+                netMgr.updatePingMarkTtl(dTime);
+                if(netMgr.pingMarkReceived && netMgr.pingMarkTtl > 0.0f){
+                    float psx = 0.0f, psy = 0.0f;
+                    Vec3 pmark = netMgr.pingMarkPos + Vec3(0, 1.5f, 0);
+                    if(projectToScreen(pmark, psx, psy)){
+                        float alpha = 0.35f + 0.6f * (netMgr.pingMarkTtl / 6.0f);
+                        if(alpha > 0.95f) alpha = 0.95f;
+                        drawHudTextCentered("PING", psx, psy, 1.22f, 0.90f, 0.85f, 0.50f, alpha);
+                        drawHudTextCentered("+", psx, psy - 0.04f, 1.35f, 0.96f, 0.88f, 0.58f, alpha);
+                    }
+                }
+            }
+            // === DEBUG MODE: trap status text, floor hazards, anomaly lock, minimap state, perf graph ===
+            if(settings.debugMode){
+                const char* mmState = minimapEnabled ? "MINIMAP ON [M/F8]" : "MINIMAP OFF [M/F8]";
+                drawHudText(mmState,-0.95f,0.84f,0.95f,0.88f,0.93f,0.78f,0.95f);
+                if(gPerfDebugOverlay){
+                    char graph[40];
+                    buildFrameTimeGraph(
+                        gPerfFrameTimeHistory,
+                        PERF_GRAPH_SAMPLES,
+                        gPerfFrameTimeHead,
+                        32,
+                        graph,
+                        40
+                    );
+                    float avgMs = averageFrameTimeMs(gPerfFrameTimeHistory, PERF_GRAPH_SAMPLES);
+                    float p95Ms = percentileFrameTimeMs(gPerfFrameTimeHistory, PERF_GRAPH_SAMPLES, 0.95f);
+                    char dbgA[96];
+                    char dbgB[96];
+                    snprintf(dbgA,96,"DEBUG PERF [F3] FT %.2fms AVG %.2f P95 %.2f",gPerfFrameMs,avgMs,p95Ms);
+                    snprintf(dbgB,96,"GRAPH %s",graph);
+                    drawHudText(dbgA,0.12f,-0.74f,1.00f,0.70f,0.85f,0.92f,0.93f);
+                    drawHudText(dbgB,0.12f,-0.80f,1.00f,0.72f,0.82f,0.88f,0.93f);
+                }
+                if(debugTools.flyMode){
+                    drawHudText("DEBUG FLY: ON",0.52f,0.95f,1.10f,0.78f,0.95f,0.85f,0.98f);
+                }
+                if(debugTools.infiniteStamina){
+                    drawHudText("DEBUG STAMINA: INF",0.52f,0.90f,1.02f,0.75f,0.92f,0.78f,0.96f);
+                }
+            }
+            if(multiState==MULTI_IN_GAME && netMgr.connectionUnstable((float)glfwGetTime())){
+                drawHudTextCentered("NETWORK UNSTABLE - RECONNECTING MAY OCCUR",0.0f,0.74f,1.12f,0.95f,0.64f,0.44f,0.95f);
+            }
+            // === DEBUG MODE: debug tools panel (F10) ===
+            if(settings.debugMode && debugTools.open){
+                drawFullscreenOverlay(0.02f,0.03f,0.04f,0.62f);
+                drawHudText("DEBUG TOOLS",-0.28f,0.56f,1.8f,0.9f,0.95f,0.82f,0.98f);
+                for(int i=0;i<DEBUG_ACTION_COUNT;i++){
+                    float y = 0.47f - i*0.08f;
+                    float s = (debugTools.selectedAction==i)?1.0f:0.65f;
+                    if(debugTools.selectedAction==i) drawHudText(">",-0.39f,y,1.4f,0.92f,0.9f,0.65f,0.95f);
+                    drawHudText(debugActionLabel(i),-0.34f,y,1.35f,0.82f*s,0.88f*s,0.72f*s,0.92f);
+                }
+                drawHudText("F10 TOGGLE  ENTER APPLY  ESC CLOSE",-0.42f,-0.20f,1.15f,0.67f,0.72f,0.78f,0.90f);
+            }
+        }
+    }
+}
+
+void updateMultiplayer(){
+    if(multiState!=MULTI_IN_GAME) return;
+    
+    static float netSendTimer=0;
+    static float stateSyncTimer=0;
+    netSendTimer+=dTime;
+    stateSyncTimer+=dTime;
+    if(netSendTimer>=0.05f){
+        netMgr.sendPlayerState(cam.pos,cam.yaw,cam.pitch,flashlightOn);
+        netSendTimer=0;
+    }
+    netMgr.update();
+    netMgr.sendPing((float)glfwGetTime());
+    updatePlayerInterpolation(netMgr.myId, dTime);
+    if(!netMgr.isHost && netMgr.clientTimedOut((float)glfwGetTime())){
+        captureSessionSnapshot();
+        netMgr.shutdown();
+        reconnectInProgress = true;
+        restoreAfterReconnect = true;
+        reconnectAttemptTimer = 0.0f;
+        reconnectAttempts = 0;
+        multiState = MULTI_CONNECTING;
+        gameState = STATE_MULTI_WAIT;
+        return;
+    }
+    
+    if(netMgr.roamEventReceived){
+        netMgr.roamEventReceived = false;
+        applyRoamEvent(netMgr.roamEventType, netMgr.roamEventA, netMgr.roamEventB, netMgr.roamEventDuration);
+    }
+    
+    if(!netMgr.isHost && netMgr.reshuffleReceived){
+        netMgr.reshuffleReceived = false;
+        long long key = chunkKey(netMgr.reshuffleChunkX, netMgr.reshuffleChunkZ);
+        auto it = chunks.find(key);
+        if (it == chunks.end()) {
+            generateChunk(netMgr.reshuffleChunkX, netMgr.reshuffleChunkZ);
+            it = chunks.find(key);
+        }
+        if (it != chunks.end()) {
+            for (int x = 0; x < CHUNK_SIZE; x++) {
+                for (int z = 0; z < CHUNK_SIZE; z++) {
+                    int idx = x * CHUNK_SIZE + z;
+                    it->second.cells[x][z] = (int)netMgr.reshuffleCells[idx];
+                }
+            }
+        }
+        worldSeed = netMgr.reshuffleSeed;
+        updateLightsAndPillars(playerChunkX, playerChunkZ);
+        buildGeom();
+    }
+    
+    if(!netMgr.isHost){
+        entitySpawnTimer = 999;
+        clientApplyFeatureState();
+        if(netMgr.entitySnapshotReceived){
+            netMgr.entitySnapshotReceived = false;
+            entityMgr.entities.clear();
+            for(int i=0;i<netMgr.entitySnapshotCount;i++){
+                if(!netMgr.entitySnapshot[i].active) continue;
+                Entity e;
+                e.type = (EntityType)netMgr.entitySnapshot[i].type;
+                e.pos = netMgr.entitySnapshot[i].pos;
+                e.yaw = netMgr.entitySnapshot[i].yaw;
+                e.state = (EntityState)netMgr.entitySnapshot[i].state;
+                e.active = true;
+                if(e.type==ENTITY_STALKER){ e.speed=1.5f; e.detectionRange=20.0f; e.attackRange=1.0f; }
+                else if(e.type==ENTITY_CRAWLER){ e.speed=5.0f; e.detectionRange=15.0f; e.attackRange=1.5f; e.pos.y=-0.8f; }
+                else if(e.type==ENTITY_SHADOW){ e.speed=0.5f; e.detectionRange=8.0f; e.attackRange=2.0f; }
+                entityMgr.entities.push_back(e);
+            }
+        }
+    }else{
+        processHostInteractRequests();
+        updateCoopObjectiveHost();
+        hostUpdateItems();
+        updateRoamEventsHost();
+        if(stateSyncTimer>=0.12f){
+            stateSyncTimer = 0;
+            NetEntitySnapshotEntry snap[MAX_SYNC_ENTITIES];
+            int c = 0;
+            for(auto& e:entityMgr.entities){
+                if(c>=MAX_SYNC_ENTITIES) break;
+                snap[c].id = c;
+                snap[c].type = (int)e.type;
+                snap[c].pos = e.pos;
+                snap[c].yaw = e.yaw;
+                snap[c].state = (int)e.state;
+                snap[c].active = e.active;
+                c++;
+            }
+            netMgr.sendEntitySnapshot(snap, c);
+            hostSyncFeatureState();
+        }
+    }
+}
