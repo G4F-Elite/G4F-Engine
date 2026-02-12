@@ -777,6 +777,19 @@ g4f_gfx_mesh* g4f_gfx_mesh_create_cube_p3n3uv2(g4f_gfx* gfx, float halfExtent) {
     );
 }
 
+g4f_gfx_mesh* g4f_gfx_mesh_create_plane_xz_p3n3uv2(g4f_gfx* gfx, float halfExtent, float uvScale) {
+    float e = (halfExtent > 0.0f) ? halfExtent : 1.0f;
+    float s = (uvScale > 0.0f) ? uvScale : 1.0f;
+    const g4f_gfx_vertex_p3n3uv2 vertices[] = {
+        {-e, 0.0f, -e, 0.0f, 1.0f, 0.0f, 0.0f, s},
+        {+e, 0.0f, -e, 0.0f, 1.0f, 0.0f, s, s},
+        {+e, 0.0f, +e, 0.0f, 1.0f, 0.0f, s, 0.0f},
+        {-e, 0.0f, +e, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f},
+    };
+    const uint16_t indices[] = {0, 1, 2, 0, 2, 3};
+    return g4f_gfx_mesh_create_p3n3uv2(gfx, vertices, 4, indices, 6);
+}
+
 void g4f_gfx_mesh_destroy(g4f_gfx_mesh* mesh) {
     if (!mesh) return;
     safeRelease((IUnknown**)&mesh->ib);

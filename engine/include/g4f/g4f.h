@@ -265,6 +265,7 @@ typedef struct g4f_gfx_vertex_p3n3uv2 {
 
 g4f_gfx_mesh* g4f_gfx_mesh_create_p3n3uv2(g4f_gfx* gfx, const g4f_gfx_vertex_p3n3uv2* vertices, int vertexCount, const uint16_t* indices, int indexCount);
 g4f_gfx_mesh* g4f_gfx_mesh_create_cube_p3n3uv2(g4f_gfx* gfx, float halfExtent);
+g4f_gfx_mesh* g4f_gfx_mesh_create_plane_xz_p3n3uv2(g4f_gfx* gfx, float halfExtent, float uvScale);
 void g4f_gfx_mesh_destroy(g4f_gfx_mesh* mesh);
 void g4f_gfx_draw_mesh(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_gfx_material* material, const g4f_mat4* mvp);
 void g4f_gfx_draw_mesh_xform(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_gfx_material* material, const g4f_mat4* model, const g4f_mat4* mvp);
