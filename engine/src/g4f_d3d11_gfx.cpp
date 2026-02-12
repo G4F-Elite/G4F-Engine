@@ -17,75 +17,6 @@
 
 namespace {
 
-struct Mat4 {
-    float m[16];
-};
-
-static Mat4 mat4Identity() {
-    Mat4 out{};
-    out.m[0] = 1.0f;
-    out.m[5] = 1.0f;
-    out.m[10] = 1.0f;
-    out.m[15] = 1.0f;
-    return out;
-}
-
-static Mat4 mat4Mul(const Mat4& a, const Mat4& b) {
-    Mat4 out{};
-    for (int r = 0; r < 4; r++) {
-        for (int c = 0; c < 4; c++) {
-            out.m[r * 4 + c] =
-                a.m[r * 4 + 0] * b.m[0 * 4 + c] +
-                a.m[r * 4 + 1] * b.m[1 * 4 + c] +
-                a.m[r * 4 + 2] * b.m[2 * 4 + c] +
-                a.m[r * 4 + 3] * b.m[3 * 4 + c];
-        }
-    }
-    return out;
-}
-
-static Mat4 mat4RotationY(float radians) {
-    Mat4 out = mat4Identity();
-    float c = std::cos(radians);
-    float s = std::sin(radians);
-    out.m[0] = c;
-    out.m[2] = s;
-    out.m[8] = -s;
-    out.m[10] = c;
-    return out;
-}
-
-static Mat4 mat4RotationX(float radians) {
-    Mat4 out = mat4Identity();
-    float c = std::cos(radians);
-    float s = std::sin(radians);
-    out.m[5] = c;
-    out.m[6] = -s;
-    out.m[9] = s;
-    out.m[10] = c;
-    return out;
-}
-
-static Mat4 mat4Translation(float x, float y, float z) {
-    Mat4 out = mat4Identity();
-    out.m[12] = x;
-    out.m[13] = y;
-    out.m[14] = z;
-    return out;
-}
-
-static Mat4 mat4Perspective(float fovYRadians, float aspect, float zn, float zf) {
-    Mat4 out{};
-    float yScale = 1.0f / std::tan(fovYRadians * 0.5f);
-    float xScale = yScale / aspect;
-    out.m[0] = xScale;
-    out.m[5] = yScale;
-    out.m[10] = zf / (zf - zn);
-    out.m[11] = 1.0f;
-    out.m[14] = (-zn * zf) / (zf - zn);
-    return out;
-}
-
 static float clamp01(float v) {
     if (v < 0.0f) return 0.0f;
     if (v > 1.0f) return 1.0f;
@@ -132,6 +63,13 @@ static HRESULT compileHlsl(
 struct Vertex {
     float px, py, pz;
     float cr, cg, cb, ca;
+};
+
+struct CbUnlit {
+    g4f_mat4 mvp;
+    float tint[4];
+    float hasTex;
+    float pad[3];
 };
 
 } // namespace
@@ -254,11 +192,79 @@ float4 PSMain(PSIn i) : SV_Target { return i.col; }
     if (FAILED(hr) || !gfx->ib) return false;
 
     D3D11_BUFFER_DESC cbDesc{};
-    cbDesc.ByteWidth = (UINT)sizeof(Mat4);
+    cbDesc.ByteWidth = (UINT)sizeof(g4f_mat4);
     cbDesc.Usage = D3D11_USAGE_DEFAULT;
     cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     hr = gfx->device->CreateBuffer(&cbDesc, nullptr, &gfx->cbMvp);
     if (FAILED(hr) || !gfx->cbMvp) return false;
+
+    return true;
+}
+
+static bool gfxCreateUnlitPipeline(g4f_gfx* gfx) {
+    static const char* kShader = R"(
+cbuffer CB0 : register(b0) {
+  row_major float4x4 uMvp;
+  float4 uTint;
+  float uHasTex;
+  float3 _pad;
+};
+Texture2D uTex0 : register(t0);
+SamplerState uSamp0 : register(s0);
+struct VSIn { float3 pos : POSITION; float3 n : NORMAL; float2 uv : TEXCOORD0; };
+struct PSIn { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
+PSIn VSMain(VSIn i){
+  PSIn o;
+  o.pos = mul(float4(i.pos,1.0), uMvp);
+  o.uv = i.uv;
+  return o;
+}
+float4 PSMain(PSIn i) : SV_Target {
+  float4 c = uTint;
+  if (uHasTex > 0.5) c *= uTex0.Sample(uSamp0, i.uv);
+  return c;
+}
+)";
+
+    ID3DBlob* vsBlob = nullptr;
+    ID3DBlob* psBlob = nullptr;
+    HRESULT hr = compileHlsl(kShader, "VSMain", "vs_5_0", &vsBlob);
+    if (FAILED(hr) || !vsBlob) return false;
+    hr = compileHlsl(kShader, "PSMain", "ps_5_0", &psBlob);
+    if (FAILED(hr) || !psBlob) { vsBlob->Release(); return false; }
+
+    hr = gfx->device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &gfx->vsUnlit);
+    if (FAILED(hr)) { vsBlob->Release(); psBlob->Release(); return false; }
+    hr = gfx->device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &gfx->psUnlit);
+    psBlob->Release();
+    if (FAILED(hr)) { vsBlob->Release(); return false; }
+
+    D3D11_INPUT_ELEMENT_DESC il[] = {
+        {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0},
+    };
+    hr = gfx->device->CreateInputLayout(il, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &gfx->ilUnlit);
+    vsBlob->Release();
+    if (FAILED(hr) || !gfx->ilUnlit) return false;
+
+    D3D11_BUFFER_DESC cbDesc{};
+    cbDesc.ByteWidth = (UINT)sizeof(CbUnlit);
+    cbDesc.Usage = D3D11_USAGE_DEFAULT;
+    cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    hr = gfx->device->CreateBuffer(&cbDesc, nullptr, &gfx->cbUnlit);
+    if (FAILED(hr) || !gfx->cbUnlit) return false;
+
+    D3D11_SAMPLER_DESC samp{};
+    samp.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    samp.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+    samp.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    samp.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+    samp.ComparisonFunc = D3D11_COMPARISON_NEVER;
+    samp.MinLOD = 0;
+    samp.MaxLOD = D3D11_FLOAT32_MAX;
+    hr = gfx->device->CreateSamplerState(&samp, &gfx->sampLinearClamp);
+    if (FAILED(hr) || !gfx->sampLinearClamp) return false;
 
     return true;
 }
@@ -312,11 +318,21 @@ g4f_gfx* g4f_gfx_create(g4f_window* window) {
         return nullptr;
     }
 
+    if (!gfxCreateUnlitPipeline(gfx)) {
+        g4f_gfx_destroy(gfx);
+        return nullptr;
+    }
+
     return gfx;
 }
 
 void g4f_gfx_destroy(g4f_gfx* gfx) {
     if (!gfx) return;
+    safeRelease((IUnknown**)&gfx->sampLinearClamp);
+    safeRelease((IUnknown**)&gfx->cbUnlit);
+    safeRelease((IUnknown**)&gfx->ilUnlit);
+    safeRelease((IUnknown**)&gfx->psUnlit);
+    safeRelease((IUnknown**)&gfx->vsUnlit);
     safeRelease((IUnknown**)&gfx->cbMvp);
     safeRelease((IUnknown**)&gfx->ib);
     safeRelease((IUnknown**)&gfx->vb);
@@ -367,15 +383,194 @@ void g4f_gfx_draw_debug_cube(g4f_gfx* gfx, float timeSeconds) {
     gfx->ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     float aspect = (gfx->cachedH > 0) ? ((float)gfx->cachedW / (float)gfx->cachedH) : 1.0f;
-    Mat4 proj = mat4Perspective(70.0f * 3.14159265f / 180.0f, aspect, 0.1f, 100.0f);
-    Mat4 view = mat4Translation(0.0f, 0.0f, 4.0f);
-    Mat4 rot = mat4Mul(mat4RotationY(timeSeconds * 0.8f), mat4RotationX(timeSeconds * 0.5f));
-    Mat4 mvp = mat4Mul(mat4Mul(rot, view), proj);
+    g4f_mat4 proj = g4f_mat4_perspective(70.0f * 3.14159265f / 180.0f, aspect, 0.1f, 100.0f);
+    g4f_mat4 view = g4f_mat4_translation(0.0f, 0.0f, 4.0f);
+    g4f_mat4 rot = g4f_mat4_mul(g4f_mat4_rotation_y(timeSeconds * 0.8f), g4f_mat4_rotation_x(timeSeconds * 0.5f));
+    g4f_mat4 mvp = g4f_mat4_mul(g4f_mat4_mul(rot, view), proj);
 
     gfx->ctx->UpdateSubresource(gfx->cbMvp, 0, nullptr, &mvp, 0, 0);
     gfx->ctx->VSSetConstantBuffers(0, 1, &gfx->cbMvp);
 
     gfx->ctx->DrawIndexed(gfx->indexCount, 0, 0);
+}
+
+struct g4f_gfx_texture {
+    ID3D11Texture2D* tex = nullptr;
+    ID3D11ShaderResourceView* srv = nullptr;
+    int width = 0;
+    int height = 0;
+};
+
+struct g4f_gfx_material {
+    float tint[4]{1.0f, 1.0f, 1.0f, 1.0f};
+    ID3D11ShaderResourceView* srv = nullptr; // optional
+};
+
+struct g4f_gfx_mesh {
+    ID3D11Buffer* vb = nullptr;
+    ID3D11Buffer* ib = nullptr;
+    UINT indexCount = 0;
+};
+
+g4f_gfx_texture* g4f_gfx_texture_create_rgba8(g4f_gfx* gfx, int width, int height, const void* rgbaPixels, int rowPitchBytes) {
+    if (!gfx || !gfx->device || !rgbaPixels) return nullptr;
+    if (width <= 0 || height <= 0) return nullptr;
+    if (rowPitchBytes <= 0) rowPitchBytes = width * 4;
+
+    auto* texture = new g4f_gfx_texture();
+    texture->width = width;
+    texture->height = height;
+
+    D3D11_TEXTURE2D_DESC desc{};
+    desc.Width = (UINT)width;
+    desc.Height = (UINT)height;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.SampleDesc.Count = 1;
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+    D3D11_SUBRESOURCE_DATA data{};
+    data.pSysMem = rgbaPixels;
+    data.SysMemPitch = (UINT)rowPitchBytes;
+
+    HRESULT hr = gfx->device->CreateTexture2D(&desc, &data, &texture->tex);
+    if (FAILED(hr) || !texture->tex) {
+        g4f_gfx_texture_destroy(texture);
+        return nullptr;
+    }
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+    srvDesc.Format = desc.Format;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    srvDesc.Texture2D.MipLevels = 1;
+
+    hr = gfx->device->CreateShaderResourceView(texture->tex, &srvDesc, &texture->srv);
+    if (FAILED(hr) || !texture->srv) {
+        g4f_gfx_texture_destroy(texture);
+        return nullptr;
+    }
+
+    return texture;
+}
+
+void g4f_gfx_texture_destroy(g4f_gfx_texture* texture) {
+    if (!texture) return;
+    safeRelease((IUnknown**)&texture->srv);
+    safeRelease((IUnknown**)&texture->tex);
+    delete texture;
+}
+
+g4f_gfx_material* g4f_gfx_material_create_unlit(g4f_gfx* gfx, const g4f_gfx_material_unlit_desc* desc) {
+    if (!gfx) return nullptr;
+    auto* material = new g4f_gfx_material();
+
+    uint32_t rgba = desc ? desc->tintRgba : g4f_rgba_u32(255, 255, 255, 255);
+    rgbaU32ToFloat4(rgba, material->tint);
+
+    if (desc && desc->texture && desc->texture->srv) {
+        material->srv = desc->texture->srv;
+        material->srv->AddRef();
+    }
+
+    return material;
+}
+
+void g4f_gfx_material_destroy(g4f_gfx_material* material) {
+    if (!material) return;
+    safeRelease((IUnknown**)&material->srv);
+    delete material;
+}
+
+void g4f_gfx_material_set_tint_rgba(g4f_gfx_material* material, uint32_t rgba) {
+    if (!material) return;
+    rgbaU32ToFloat4(rgba, material->tint);
+}
+
+void g4f_gfx_material_set_texture(g4f_gfx_material* material, g4f_gfx_texture* texture) {
+    if (!material) return;
+    safeRelease((IUnknown**)&material->srv);
+    if (texture && texture->srv) {
+        material->srv = texture->srv;
+        material->srv->AddRef();
+    }
+}
+
+g4f_gfx_mesh* g4f_gfx_mesh_create_p3n3uv2(g4f_gfx* gfx, const g4f_gfx_vertex_p3n3uv2* vertices, int vertexCount, const uint16_t* indices, int indexCount) {
+    if (!gfx || !gfx->device) return nullptr;
+    if (!vertices || vertexCount <= 0) return nullptr;
+    if (!indices || indexCount <= 0) return nullptr;
+
+    auto* mesh = new g4f_gfx_mesh();
+    mesh->indexCount = (UINT)indexCount;
+
+    D3D11_BUFFER_DESC vbDesc{};
+    vbDesc.ByteWidth = (UINT)(sizeof(g4f_gfx_vertex_p3n3uv2) * (size_t)vertexCount);
+    vbDesc.Usage = D3D11_USAGE_DEFAULT;
+    vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    D3D11_SUBRESOURCE_DATA vbData{};
+    vbData.pSysMem = vertices;
+    HRESULT hr = gfx->device->CreateBuffer(&vbDesc, &vbData, &mesh->vb);
+    if (FAILED(hr) || !mesh->vb) {
+        g4f_gfx_mesh_destroy(mesh);
+        return nullptr;
+    }
+
+    D3D11_BUFFER_DESC ibDesc{};
+    ibDesc.ByteWidth = (UINT)(sizeof(uint16_t) * (size_t)indexCount);
+    ibDesc.Usage = D3D11_USAGE_DEFAULT;
+    ibDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+    D3D11_SUBRESOURCE_DATA ibData{};
+    ibData.pSysMem = indices;
+    hr = gfx->device->CreateBuffer(&ibDesc, &ibData, &mesh->ib);
+    if (FAILED(hr) || !mesh->ib) {
+        g4f_gfx_mesh_destroy(mesh);
+        return nullptr;
+    }
+
+    return mesh;
+}
+
+void g4f_gfx_mesh_destroy(g4f_gfx_mesh* mesh) {
+    if (!mesh) return;
+    safeRelease((IUnknown**)&mesh->ib);
+    safeRelease((IUnknown**)&mesh->vb);
+    delete mesh;
+}
+
+void g4f_gfx_draw_mesh(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_gfx_material* material, const g4f_mat4* mvp) {
+    if (!gfx || !gfx->ctx) return;
+    if (!mesh || !mesh->vb || !mesh->ib) return;
+    if (!material || !mvp) return;
+
+    gfx->ctx->IASetInputLayout(gfx->ilUnlit);
+    gfx->ctx->VSSetShader(gfx->vsUnlit, nullptr, 0);
+    gfx->ctx->PSSetShader(gfx->psUnlit, nullptr, 0);
+
+    UINT stride = (UINT)sizeof(g4f_gfx_vertex_p3n3uv2);
+    UINT offset = 0;
+    gfx->ctx->IASetVertexBuffers(0, 1, &mesh->vb, &stride, &offset);
+    gfx->ctx->IASetIndexBuffer(mesh->ib, DXGI_FORMAT_R16_UINT, 0);
+    gfx->ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    CbUnlit cb{};
+    cb.mvp = *mvp;
+    cb.tint[0] = material->tint[0];
+    cb.tint[1] = material->tint[1];
+    cb.tint[2] = material->tint[2];
+    cb.tint[3] = material->tint[3];
+    cb.hasTex = material->srv ? 1.0f : 0.0f;
+    gfx->ctx->UpdateSubresource(gfx->cbUnlit, 0, nullptr, &cb, 0, 0);
+    gfx->ctx->VSSetConstantBuffers(0, 1, &gfx->cbUnlit);
+    gfx->ctx->PSSetConstantBuffers(0, 1, &gfx->cbUnlit);
+
+    ID3D11ShaderResourceView* srv = material->srv;
+    gfx->ctx->PSSetShaderResources(0, 1, &srv);
+    gfx->ctx->PSSetSamplers(0, 1, &gfx->sampLinearClamp);
+
+    gfx->ctx->DrawIndexed(mesh->indexCount, 0, 0);
 }
 
 void g4f_gfx_end(g4f_gfx* gfx) {

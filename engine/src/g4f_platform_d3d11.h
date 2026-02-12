@@ -25,6 +25,12 @@ struct g4f_gfx {
     ID3D11Buffer* ib = nullptr;
     ID3D11Buffer* cbMvp = nullptr;
 
+    // Unlit material pipeline (P3N3UV2, optional texture).
+    ID3D11VertexShader* vsUnlit = nullptr;
+    ID3D11PixelShader* psUnlit = nullptr;
+    ID3D11InputLayout* ilUnlit = nullptr;
+    ID3D11Buffer* cbUnlit = nullptr;
+    ID3D11SamplerState* sampLinearClamp = nullptr;
+
     UINT indexCount = 0;
 };
-

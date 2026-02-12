@@ -15,6 +15,9 @@ typedef struct g4f_bitmap g4f_bitmap;
 typedef struct g4f_ctx g4f_ctx;
 typedef struct g4f_gfx g4f_gfx;
 typedef struct g4f_ctx3d g4f_ctx3d;
+typedef struct g4f_gfx_texture g4f_gfx_texture;
+typedef struct g4f_gfx_material g4f_gfx_material;
+typedef struct g4f_gfx_mesh g4f_gfx_mesh;
 
 typedef struct g4f_window_desc {
     const char* title_utf8;
@@ -223,6 +226,30 @@ void g4f_frame3d_end(g4f_ctx3d* ctx);
 // Minimal built-in 3D draw for early bring-up (procedural cube).
 // Intended as a temporary scaffolding API during engine bootstrap.
 void g4f_gfx_draw_debug_cube(g4f_gfx* gfx, float timeSeconds);
+
+// 3D resources (created from code, no asset files).
+g4f_gfx_texture* g4f_gfx_texture_create_rgba8(g4f_gfx* gfx, int width, int height, const void* rgbaPixels, int rowPitchBytes);
+void g4f_gfx_texture_destroy(g4f_gfx_texture* texture);
+
+typedef struct g4f_gfx_material_unlit_desc {
+    uint32_t tintRgba;            // multiplies output
+    g4f_gfx_texture* texture;     // optional
+} g4f_gfx_material_unlit_desc;
+
+g4f_gfx_material* g4f_gfx_material_create_unlit(g4f_gfx* gfx, const g4f_gfx_material_unlit_desc* desc);
+void g4f_gfx_material_destroy(g4f_gfx_material* material);
+void g4f_gfx_material_set_tint_rgba(g4f_gfx_material* material, uint32_t rgba);
+void g4f_gfx_material_set_texture(g4f_gfx_material* material, g4f_gfx_texture* texture);
+
+typedef struct g4f_gfx_vertex_p3n3uv2 {
+    float px, py, pz;
+    float nx, ny, nz;
+    float u, v;
+} g4f_gfx_vertex_p3n3uv2;
+
+g4f_gfx_mesh* g4f_gfx_mesh_create_p3n3uv2(g4f_gfx* gfx, const g4f_gfx_vertex_p3n3uv2* vertices, int vertexCount, const uint16_t* indices, int indexCount);
+void g4f_gfx_mesh_destroy(g4f_gfx_mesh* mesh);
+void g4f_gfx_draw_mesh(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_gfx_material* material, const g4f_mat4* mvp);
 
 // Window.
 g4f_window* g4f_window_create(g4f_app* app, const g4f_window_desc* desc);
