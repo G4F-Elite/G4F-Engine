@@ -52,6 +52,7 @@ Current (bootstrap) state:
 - `g4f_gfx` also supports code-generated meshes/materials/textures (unlit).
 - `g4f_ctx3d` is the simplest 3D integration wrapper.
 - `g4f_ui` supports TAB navigation and a usable `g4f_ui_input_text_k` (mouse caret/drag selection + horizontal scroll).
+- `tests/math_tests.cpp` validates `g4f_mat4` helpers.
 
 ## Build outputs
 - `out/lib/libg4f.a` - engine static library
