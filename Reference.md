@@ -66,6 +66,11 @@ Two levels:
 Immediate-mode UI helper (no editor, all in code):
 - Header: `engine/include/g4f/g4f_ui.h`
 - Typical flow per-frame: `g4f_ui_begin` → `g4f_ui_layout_begin` → widgets → `g4f_ui_end`
+- Panels: `g4f_ui_panel_begin` / `g4f_ui_panel_end` (includes clipping)
+
+## Text + clipping helpers
+- Wrapped text: `g4f_draw_text_wrapped`, `g4f_measure_text_wrapped`
+- Clip stack: `g4f_clip_push`, `g4f_clip_pop`
 
 ## 3D Quickstart (D3D11 bring-up)
 Minimal 3D loop (no asset files; shaders/geometry are embedded/generated):
