@@ -268,13 +268,6 @@ static std::string& uiStoreStringRef(g4f_ui* ui, const char* key_utf8, const cha
     return it->second;
 }
 
-static void uiUtf8PopBack(std::string& s) {
-    if (s.empty()) return;
-    size_t i = s.size() - 1;
-    while (i > 0 && ((uint8_t)s[i] & 0xC0u) == 0x80u) i--;
-    s.erase(i);
-}
-
 static size_t uiUtf8PrevBoundary(const std::string& s, size_t pos) {
     if (pos == 0) return 0;
     size_t i = (pos > s.size()) ? s.size() : pos;
