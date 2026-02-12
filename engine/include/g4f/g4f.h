@@ -241,6 +241,7 @@ typedef struct g4f_gfx_material_unlit_desc {
     int alphaBlend;              // 0/1 (default 0)
     int depthTest;               // 0/1 (default 1)
     int depthWrite;              // 0/1 (default 1)
+    int cullMode;                // 0 back (default), 1 none, 2 front
 } g4f_gfx_material_unlit_desc;
 
 g4f_gfx_material* g4f_gfx_material_create_unlit(g4f_gfx* gfx, const g4f_gfx_material_unlit_desc* desc);
@@ -249,6 +250,7 @@ void g4f_gfx_material_set_tint_rgba(g4f_gfx_material* material, uint32_t rgba);
 void g4f_gfx_material_set_texture(g4f_gfx_material* material, g4f_gfx_texture* texture);
 void g4f_gfx_material_set_alpha_blend(g4f_gfx_material* material, int enabled);
 void g4f_gfx_material_set_depth(g4f_gfx_material* material, int depthTest, int depthWrite);
+void g4f_gfx_material_set_cull(g4f_gfx_material* material, int cullMode);
 
 typedef struct g4f_gfx_vertex_p3n3uv2 {
     float px, py, pz;

@@ -18,6 +18,8 @@ struct g4f_gfx {
     ID3D11DepthStencilView* dsv = nullptr;
 
     ID3D11RasterizerState* rsCullBack = nullptr;
+    ID3D11RasterizerState* rsCullNone = nullptr;
+    ID3D11RasterizerState* rsCullFront = nullptr;
     ID3D11DepthStencilState* dsDepthLess = nullptr;
     ID3D11DepthStencilState* dsDepthLessNoWrite = nullptr;
     ID3D11DepthStencilState* dsDisabled = nullptr;

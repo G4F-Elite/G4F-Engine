@@ -213,6 +213,14 @@ static bool gfxCreateDefaultStates(g4f_gfx* gfx) {
     HRESULT hr = gfx->device->CreateRasterizerState(&rs, &gfx->rsCullBack);
     if (FAILED(hr) || !gfx->rsCullBack) return false;
 
+    rs.CullMode = D3D11_CULL_NONE;
+    hr = gfx->device->CreateRasterizerState(&rs, &gfx->rsCullNone);
+    if (FAILED(hr) || !gfx->rsCullNone) return false;
+
+    rs.CullMode = D3D11_CULL_FRONT;
+    hr = gfx->device->CreateRasterizerState(&rs, &gfx->rsCullFront);
+    if (FAILED(hr) || !gfx->rsCullFront) return false;
+
     D3D11_DEPTH_STENCIL_DESC ds{};
     ds.DepthEnable = TRUE;
     ds.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
@@ -411,6 +419,8 @@ void g4f_gfx_destroy(g4f_gfx* gfx) {
     safeRelease((IUnknown**)&gfx->dsDepthLessNoWrite);
     safeRelease((IUnknown**)&gfx->dsDisabled);
     safeRelease((IUnknown**)&gfx->rsCullBack);
+    safeRelease((IUnknown**)&gfx->rsCullNone);
+    safeRelease((IUnknown**)&gfx->rsCullFront);
     safeRelease((IUnknown**)&gfx->dsv);
     safeRelease((IUnknown**)&gfx->depthTex);
     safeRelease((IUnknown**)&gfx->rtv);
@@ -496,6 +506,7 @@ struct g4f_gfx_material {
     int alphaBlend = 0;
     int depthTest = 1;
     int depthWrite = 1;
+    int cullMode = 0; // 0 back, 1 none, 2 front
 };
 
 struct g4f_gfx_mesh {
@@ -591,6 +602,9 @@ g4f_gfx_material* g4f_gfx_material_create_unlit(g4f_gfx* gfx, const g4f_gfx_mate
     material->alphaBlend = (desc && desc->alphaBlend) ? 1 : 0;
     material->depthTest = (!desc || desc->depthTest) ? 1 : 0;
     material->depthWrite = (!desc || desc->depthWrite) ? 1 : 0;
+    material->cullMode = desc ? desc->cullMode : 0;
+    if (material->cullMode < 0) material->cullMode = 0;
+    if (material->cullMode > 2) material->cullMode = 2;
 
     return material;
 }
@@ -624,6 +638,14 @@ void g4f_gfx_material_set_depth(g4f_gfx_material* material, int depthTest, int d
     if (!material) return;
     material->depthTest = depthTest ? 1 : 0;
     material->depthWrite = depthWrite ? 1 : 0;
+}
+
+void g4f_gfx_material_set_cull(g4f_gfx_material* material, int cullMode) {
+    if (!material) return;
+    int cm = cullMode;
+    if (cm < 0) cm = 0;
+    if (cm > 2) cm = 2;
+    material->cullMode = cm;
 }
 
 g4f_gfx_mesh* g4f_gfx_mesh_create_p3n3uv2(g4f_gfx* gfx, const g4f_gfx_vertex_p3n3uv2* vertices, int vertexCount, const uint16_t* indices, int indexCount) {
@@ -721,6 +743,10 @@ void g4f_gfx_draw_mesh(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_gfx_mat
     gfx->ctx->OMSetBlendState(material->alphaBlend ? gfx->bsAlpha : gfx->bsOpaque, blendFactor, 0xFFFFFFFFu);
     if (!material->depthTest) gfx->ctx->OMSetDepthStencilState(gfx->dsDisabled, 0);
     else gfx->ctx->OMSetDepthStencilState(material->depthWrite ? gfx->dsDepthLess : gfx->dsDepthLessNoWrite, 0);
+    ID3D11RasterizerState* rs = gfx->rsCullBack;
+    if (material->cullMode == 1) rs = gfx->rsCullNone;
+    if (material->cullMode == 2) rs = gfx->rsCullFront;
+    gfx->ctx->RSSetState(rs);
 
     CbUnlit cb{};
     cb.mvp = *mvp;
