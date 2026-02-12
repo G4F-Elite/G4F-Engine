@@ -172,6 +172,7 @@ The engine exposes key codes in a GLFW-like integer space for ergonomic porting 
 - Single-threaded main loop by default (predictable)
 - Rendering batches internally (where possible)
 - Minimal allocations per-frame; caller is encouraged to reuse buffers
+- `g4f_gfx_draw_mesh_xform` caches D3D11 state internally to reduce redundant Set* calls
 
 ## Current status
 See `Agents.md` for the development plan, milestones, and "what to implement next".

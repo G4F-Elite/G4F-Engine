@@ -533,6 +533,24 @@ void g4f_gfx_begin(g4f_gfx* gfx, uint32_t clearRgba) {
     float blendFactor[4] = {0, 0, 0, 0};
     gfx->ctx->OMSetBlendState(gfx->bsOpaque, blendFactor, 0xFFFFFFFFu);
 
+    // Reset state cache each frame (simple + robust).
+    gfx->cachePipeline = 0;
+    gfx->cacheIL = nullptr;
+    gfx->cacheVS = nullptr;
+    gfx->cachePS = nullptr;
+    gfx->cacheVB = nullptr;
+    gfx->cacheIB = nullptr;
+    gfx->cacheVBStride = 0;
+    gfx->cacheVBOffset = 0;
+    gfx->cacheTopo = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
+    gfx->cacheBlend = gfx->bsOpaque;
+    gfx->cacheDepth = gfx->dsDepthLess;
+    gfx->cacheRS = gfx->rsCullBack;
+    gfx->cacheSRV0 = nullptr;
+    gfx->cacheSamp0 = nullptr;
+    gfx->cacheCB0VS = nullptr;
+    gfx->cacheCB0PS = nullptr;
+
     D3D11_VIEWPORT vp{};
     vp.TopLeftX = 0;
     vp.TopLeftY = 0;
@@ -582,15 +600,49 @@ void g4f_gfx_set_light_colors(g4f_gfx* gfx, uint32_t lightRgba, uint32_t ambient
 void g4f_gfx_draw_debug_cube(g4f_gfx* gfx, float timeSeconds) {
     if (!gfx || !gfx->ctx) return;
 
-    gfx->ctx->IASetInputLayout(gfx->inputLayout);
-    gfx->ctx->VSSetShader(gfx->vs, nullptr, 0);
-    gfx->ctx->PSSetShader(gfx->ps, nullptr, 0);
+    if (gfx->cachePipeline != 1) {
+        gfx->cachePipeline = 1;
+        gfx->cacheIL = nullptr;
+        gfx->cacheVS = nullptr;
+        gfx->cachePS = nullptr;
+        gfx->cacheVB = nullptr;
+        gfx->cacheIB = nullptr;
+        gfx->cacheTopo = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
+        gfx->cacheCB0VS = nullptr;
+        gfx->cacheCB0PS = nullptr;
+        gfx->cacheSRV0 = nullptr;
+        gfx->cacheSamp0 = nullptr;
+    }
+
+    if (gfx->cacheIL != gfx->inputLayout) {
+        gfx->ctx->IASetInputLayout(gfx->inputLayout);
+        gfx->cacheIL = gfx->inputLayout;
+    }
+    if (gfx->cacheVS != gfx->vs) {
+        gfx->ctx->VSSetShader(gfx->vs, nullptr, 0);
+        gfx->cacheVS = gfx->vs;
+    }
+    if (gfx->cachePS != gfx->ps) {
+        gfx->ctx->PSSetShader(gfx->ps, nullptr, 0);
+        gfx->cachePS = gfx->ps;
+    }
 
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
-    gfx->ctx->IASetVertexBuffers(0, 1, &gfx->vb, &stride, &offset);
-    gfx->ctx->IASetIndexBuffer(gfx->ib, DXGI_FORMAT_R16_UINT, 0);
-    gfx->ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    if (gfx->cacheVB != gfx->vb || gfx->cacheVBStride != stride || gfx->cacheVBOffset != offset) {
+        gfx->ctx->IASetVertexBuffers(0, 1, &gfx->vb, &stride, &offset);
+        gfx->cacheVB = gfx->vb;
+        gfx->cacheVBStride = stride;
+        gfx->cacheVBOffset = offset;
+    }
+    if (gfx->cacheIB != gfx->ib) {
+        gfx->ctx->IASetIndexBuffer(gfx->ib, DXGI_FORMAT_R16_UINT, 0);
+        gfx->cacheIB = gfx->ib;
+    }
+    if (gfx->cacheTopo != D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST) {
+        gfx->ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        gfx->cacheTopo = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+    }
 
     float aspect = (gfx->cachedH > 0) ? ((float)gfx->cachedW / (float)gfx->cachedH) : 1.0f;
     g4f_mat4 proj = g4f_mat4_perspective(70.0f * 3.14159265f / 180.0f, aspect, 0.1f, 100.0f);
@@ -599,7 +651,10 @@ void g4f_gfx_draw_debug_cube(g4f_gfx* gfx, float timeSeconds) {
     g4f_mat4 mvp = g4f_mat4_mul(g4f_mat4_mul(rot, view), proj);
 
     gfx->ctx->UpdateSubresource(gfx->cbMvp, 0, nullptr, &mvp, 0, 0);
-    gfx->ctx->VSSetConstantBuffers(0, 1, &gfx->cbMvp);
+    if (gfx->cacheCB0VS != gfx->cbMvp) {
+        gfx->ctx->VSSetConstantBuffers(0, 1, &gfx->cbMvp);
+        gfx->cacheCB0VS = gfx->cbMvp;
+    }
 
     gfx->ctx->DrawIndexed(gfx->indexCount, 0, 0);
 }
@@ -948,25 +1003,72 @@ void g4f_gfx_draw_mesh_xform(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_g
     if (!mesh || !mesh->vb || !mesh->ib) return;
     if (!material || !mvp) return;
 
-    gfx->ctx->IASetInputLayout(gfx->ilUnlit);
-    gfx->ctx->VSSetShader(gfx->vsUnlit, nullptr, 0);
-    gfx->ctx->PSSetShader(material->lit ? gfx->psLit : gfx->psUnlit, nullptr, 0);
+    if (gfx->cachePipeline != 2) {
+        gfx->cachePipeline = 2;
+        gfx->cacheIL = nullptr;
+        gfx->cacheVS = nullptr;
+        gfx->cachePS = nullptr;
+        gfx->cacheVB = nullptr;
+        gfx->cacheIB = nullptr;
+        gfx->cacheTopo = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
+        gfx->cacheCB0VS = nullptr;
+        gfx->cacheCB0PS = nullptr;
+        gfx->cacheSRV0 = nullptr;
+        gfx->cacheSamp0 = nullptr;
+    }
+
+    if (gfx->cacheIL != gfx->ilUnlit) {
+        gfx->ctx->IASetInputLayout(gfx->ilUnlit);
+        gfx->cacheIL = gfx->ilUnlit;
+    }
+    if (gfx->cacheVS != gfx->vsUnlit) {
+        gfx->ctx->VSSetShader(gfx->vsUnlit, nullptr, 0);
+        gfx->cacheVS = gfx->vsUnlit;
+    }
+    ID3D11PixelShader* desiredPS = material->lit ? gfx->psLit : gfx->psUnlit;
+    if (gfx->cachePS != desiredPS) {
+        gfx->ctx->PSSetShader(desiredPS, nullptr, 0);
+        gfx->cachePS = desiredPS;
+    }
 
     UINT stride = (UINT)sizeof(g4f_gfx_vertex_p3n3uv2);
     UINT offset = 0;
-    gfx->ctx->IASetVertexBuffers(0, 1, &mesh->vb, &stride, &offset);
-    gfx->ctx->IASetIndexBuffer(mesh->ib, DXGI_FORMAT_R16_UINT, 0);
-    gfx->ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    if (gfx->cacheVB != mesh->vb || gfx->cacheVBStride != stride || gfx->cacheVBOffset != offset) {
+        gfx->ctx->IASetVertexBuffers(0, 1, &mesh->vb, &stride, &offset);
+        gfx->cacheVB = mesh->vb;
+        gfx->cacheVBStride = stride;
+        gfx->cacheVBOffset = offset;
+    }
+    if (gfx->cacheIB != mesh->ib) {
+        gfx->ctx->IASetIndexBuffer(mesh->ib, DXGI_FORMAT_R16_UINT, 0);
+        gfx->cacheIB = mesh->ib;
+    }
+    if (gfx->cacheTopo != D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST) {
+        gfx->ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        gfx->cacheTopo = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+    }
 
     // Per-material pipeline state.
     float blendFactor[4] = {0, 0, 0, 0};
-    gfx->ctx->OMSetBlendState(material->alphaBlend ? gfx->bsAlpha : gfx->bsOpaque, blendFactor, 0xFFFFFFFFu);
-    if (!material->depthTest) gfx->ctx->OMSetDepthStencilState(gfx->dsDisabled, 0);
-    else gfx->ctx->OMSetDepthStencilState(material->depthWrite ? gfx->dsDepthLess : gfx->dsDepthLessNoWrite, 0);
+    ID3D11BlendState* desiredBlend = material->alphaBlend ? gfx->bsAlpha : gfx->bsOpaque;
+    if (gfx->cacheBlend != desiredBlend) {
+        gfx->ctx->OMSetBlendState(desiredBlend, blendFactor, 0xFFFFFFFFu);
+        gfx->cacheBlend = desiredBlend;
+    }
+    ID3D11DepthStencilState* desiredDepth = nullptr;
+    if (!material->depthTest) desiredDepth = gfx->dsDisabled;
+    else desiredDepth = material->depthWrite ? gfx->dsDepthLess : gfx->dsDepthLessNoWrite;
+    if (gfx->cacheDepth != desiredDepth) {
+        gfx->ctx->OMSetDepthStencilState(desiredDepth, 0);
+        gfx->cacheDepth = desiredDepth;
+    }
     ID3D11RasterizerState* rs = gfx->rsCullBack;
     if (material->cullMode == 1) rs = gfx->rsCullNone;
     if (material->cullMode == 2) rs = gfx->rsCullFront;
-    gfx->ctx->RSSetState(rs);
+    if (gfx->cacheRS != rs) {
+        gfx->ctx->RSSetState(rs);
+        gfx->cacheRS = rs;
+    }
 
     CbMaterial cb{};
     cb.mvp = *mvp;
@@ -990,12 +1092,24 @@ void g4f_gfx_draw_mesh_xform(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_g
     cb.ambientColor[2] = gfx->ambientColor[2];
     cb.ambientColor[3] = gfx->ambientColor[3];
     gfx->ctx->UpdateSubresource(gfx->cbUnlit, 0, nullptr, &cb, 0, 0);
-    gfx->ctx->VSSetConstantBuffers(0, 1, &gfx->cbUnlit);
-    gfx->ctx->PSSetConstantBuffers(0, 1, &gfx->cbUnlit);
+    if (gfx->cacheCB0VS != gfx->cbUnlit) {
+        gfx->ctx->VSSetConstantBuffers(0, 1, &gfx->cbUnlit);
+        gfx->cacheCB0VS = gfx->cbUnlit;
+    }
+    if (gfx->cacheCB0PS != gfx->cbUnlit) {
+        gfx->ctx->PSSetConstantBuffers(0, 1, &gfx->cbUnlit);
+        gfx->cacheCB0PS = gfx->cbUnlit;
+    }
 
     ID3D11ShaderResourceView* srv = material->srv;
-    gfx->ctx->PSSetShaderResources(0, 1, &srv);
-    gfx->ctx->PSSetSamplers(0, 1, &gfx->sampLinearClamp);
+    if (gfx->cacheSRV0 != srv) {
+        gfx->ctx->PSSetShaderResources(0, 1, &srv);
+        gfx->cacheSRV0 = srv;
+    }
+    if (gfx->cacheSamp0 != gfx->sampLinearClamp) {
+        gfx->ctx->PSSetSamplers(0, 1, &gfx->sampLinearClamp);
+        gfx->cacheSamp0 = gfx->sampLinearClamp;
+    }
 
     gfx->ctx->DrawIndexed(mesh->indexCount, 0, 0);
 }

@@ -50,4 +50,22 @@ struct g4f_gfx {
     ID3D11SamplerState* sampLinearClamp = nullptr;
 
     UINT indexCount = 0;
+
+    // Lightweight state cache (avoid redundant Set* calls in hot draw paths).
+    int cachePipeline = 0; // 0 none, 1 debug, 2 mesh
+    ID3D11InputLayout* cacheIL = nullptr;
+    ID3D11VertexShader* cacheVS = nullptr;
+    ID3D11PixelShader* cachePS = nullptr;
+    ID3D11Buffer* cacheVB = nullptr;
+    ID3D11Buffer* cacheIB = nullptr;
+    UINT cacheVBStride = 0;
+    UINT cacheVBOffset = 0;
+    D3D11_PRIMITIVE_TOPOLOGY cacheTopo = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
+    ID3D11BlendState* cacheBlend = nullptr;
+    ID3D11DepthStencilState* cacheDepth = nullptr;
+    ID3D11RasterizerState* cacheRS = nullptr;
+    ID3D11ShaderResourceView* cacheSRV0 = nullptr;
+    ID3D11SamplerState* cacheSamp0 = nullptr;
+    ID3D11Buffer* cacheCB0VS = nullptr;
+    ID3D11Buffer* cacheCB0PS = nullptr;
 };
