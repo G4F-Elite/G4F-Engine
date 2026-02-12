@@ -49,8 +49,8 @@ int main() {
         g4f_window_get_size(window, &w, &h);
 
         g4f_ui_begin(ui, renderer, window);
-        g4f_ui_panel_begin(ui, "BACKROOMS: VOID SHIFT", g4f_rect_f{64, 48, 520, 420});
-        g4f_ui_label(ui, "menu smoke test (UI layer)", 16.0f);
+        g4f_ui_panel_begin_scroll(ui, "BACKROOMS: VOID SHIFT", g4f_rect_f{64, 48, 520, 420});
+        g4f_ui_text_wrapped(ui, "menu smoke test (UI layer). Mouse wheel scroll is supported.", 16.0f);
         g4f_ui_layout_spacer(ui, 6.0f);
 
         for (int i = 0; i < (int)(sizeof(kItems) / sizeof(kItems[0])); i++) {

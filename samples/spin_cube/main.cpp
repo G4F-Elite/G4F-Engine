@@ -39,13 +39,16 @@ int main() {
 
         g4f_renderer_begin(ui);
         g4f_ui_begin(uiState, ui, window);
-        g4f_ui_panel_begin(uiState, "G4F SPIN CUBE", g4f_rect_f{24, 24, 420, 180});
-        g4f_ui_label(uiState, "D3D11 render + Direct2D UI overlay.", 16.0f);
+        g4f_ui_panel_begin_scroll(uiState, "G4F SPIN CUBE", g4f_rect_f{24, 24, 420, 240});
+        g4f_ui_text_wrapped(uiState, "D3D11 render + Direct2D UI overlay.\nUse mouse wheel over the panel to scroll.", 16.0f);
         g4f_ui_layout_spacer(uiState, 6.0f);
+        g4f_ui_separator(uiState);
         int show = 1;
         g4f_ui_checkbox(uiState, "dummy checkbox", &show);
         float f = 0.42f;
         g4f_ui_slider_float(uiState, "dummy slider", &f, 0.0f, 1.0f);
+        g4f_ui_layout_spacer(uiState, 10.0f);
+        g4f_ui_text_wrapped(uiState, "Long text to force scrolling. Long text to force scrolling. Long text to force scrolling. Long text to force scrolling. Long text to force scrolling.", 14.0f);
         g4f_ui_panel_end(uiState);
         g4f_ui_end(uiState);
         g4f_renderer_end(ui);
