@@ -33,6 +33,7 @@ set "INC_ENGINE=-Iengine\include"
 set "INC_COMPAT=-Icompat\include"
 
 set "LD_ENGINE=-lole32 -luuid -ld2d1 -ldwrite -lwindowscodecs -lgdi32 -luser32"
+set "LD_ENGINE_3D=-lole32 -luuid -lgdi32 -luser32 -ld3d11 -ldxgi -ld3dcompiler_47"
 set "LD_BACKROOMS=-lws2_32 -lwinmm"
 
 echo === Build: engine (static lib) ===
@@ -43,12 +44,15 @@ set "ENGINE_OBJ=%OBJ%\engine"
 %CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_win32_window.cpp -o "%ENGINE_OBJ%\g4f_win32_window.o" || exit /b 1
 %CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_d2d_renderer.cpp -o "%ENGINE_OBJ%\g4f_d2d_renderer.o" || exit /b 1
 %CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_ctx.cpp -o "%ENGINE_OBJ%\g4f_ctx.o" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_d3d11_gfx.cpp -o "%ENGINE_OBJ%\g4f_d3d11_gfx.o" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_ctx3d.cpp -o "%ENGINE_OBJ%\g4f_ctx3d.o" || exit /b 1
 
-%AR% rcs "%LIB%\libg4f.a" "%ENGINE_OBJ%\g4f_utf8_win32.o" "%ENGINE_OBJ%\g4f_keycodes_win32.o" "%ENGINE_OBJ%\g4f_win32_window.o" "%ENGINE_OBJ%\g4f_d2d_renderer.o" "%ENGINE_OBJ%\g4f_ctx.o" || exit /b 1
+%AR% rcs "%LIB%\libg4f.a" "%ENGINE_OBJ%\g4f_utf8_win32.o" "%ENGINE_OBJ%\g4f_keycodes_win32.o" "%ENGINE_OBJ%\g4f_win32_window.o" "%ENGINE_OBJ%\g4f_d2d_renderer.o" "%ENGINE_OBJ%\g4f_ctx.o" "%ENGINE_OBJ%\g4f_d3d11_gfx.o" "%ENGINE_OBJ%\g4f_ctx3d.o" || exit /b 1
 
 echo === Build: samples ===
 %CXX% %CXXFLAGS% %INC_ENGINE% samples\hello2d\main.cpp -L"%LIB%" -lg4f %LD_ENGINE% -o "%BIN%\hello2d.exe" || exit /b 1
 %CXX% %CXXFLAGS% %INC_ENGINE% samples\backrooms_menu_smoke\main.cpp -L"%LIB%" -lg4f %LD_ENGINE% -o "%BIN%\backrooms_menu_smoke.exe" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% samples\spin_cube\main.cpp -L"%LIB%" -lg4f %LD_ENGINE_3D% -o "%BIN%\spin_cube.exe" || exit /b 1
 
 echo === Build: engine tests ===
 %CXX% %CXXFLAGS% %INC_ENGINE% tests\engine_keycodes_tests.cpp -o "%BIN%\engine_keycodes_tests.exe" || exit /b 1
