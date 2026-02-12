@@ -5,6 +5,30 @@
 
 namespace {
 
+static void win32UpdateCursorClipAndCenter(g4f::win32::WindowState* state) {
+    if (!state || !state->hwnd) return;
+
+    RECT rc{};
+    GetClientRect(state->hwnd, &rc);
+    POINT tl{rc.left, rc.top};
+    POINT br{rc.right, rc.bottom};
+    ClientToScreen(state->hwnd, &tl);
+    ClientToScreen(state->hwnd, &br);
+    RECT clip{tl.x, tl.y, br.x, br.y};
+    ClipCursor(&clip);
+
+    int cx = (rc.left + rc.right) / 2;
+    int cy = (rc.top + rc.bottom) / 2;
+    POINT p{cx, cy};
+    ClientToScreen(state->hwnd, &p);
+    state->ignoreNextMouseMove = true;
+    SetCursorPos(p.x, p.y);
+    state->mouseX = (float)cx;
+    state->mouseY = (float)cy;
+    state->prevMouseX = (float)cx;
+    state->prevMouseY = (float)cy;
+}
+
 static void win32ApplyCursorVisibility(g4f_window* window) {
     if (!window) return;
     bool wantVisible = window->state.cursorWantedVisible;
@@ -44,25 +68,7 @@ static void win32ApplyCursorCapture(g4f_window* window, bool wantCaptured) {
 
         win32ApplyCursorVisibility(window);
 
-        RECT rc{};
-        GetClientRect(window->state.hwnd, &rc);
-        POINT tl{rc.left, rc.top};
-        POINT br{rc.right, rc.bottom};
-        ClientToScreen(window->state.hwnd, &tl);
-        ClientToScreen(window->state.hwnd, &br);
-        RECT clip{tl.x, tl.y, br.x, br.y};
-        ClipCursor(&clip);
-
-        int cx = (rc.left + rc.right) / 2;
-        int cy = (rc.top + rc.bottom) / 2;
-        POINT p{cx, cy};
-        ClientToScreen(window->state.hwnd, &p);
-        window->state.ignoreNextMouseMove = true;
-        SetCursorPos(p.x, p.y);
-        window->state.mouseX = (float)cx;
-        window->state.mouseY = (float)cy;
-        window->state.prevMouseX = (float)cx;
-        window->state.prevMouseY = (float)cy;
+        win32UpdateCursorClipAndCenter(&window->state);
         window->state.mouseDx = 0.0f;
         window->state.mouseDy = 0.0f;
     } else {
@@ -103,7 +109,12 @@ LRESULT CALLBACK g4f_wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             if (windowState) {
                 windowState->width = LOWORD(lparam);
                 windowState->height = HIWORD(lparam);
+                if (windowState->cursorCaptured) win32UpdateCursorClipAndCenter(windowState);
             }
+            return 0;
+        }
+        case WM_MOVE: {
+            if (windowState && windowState->cursorCaptured) win32UpdateCursorClipAndCenter(windowState);
             return 0;
         }
         case WM_MOUSEMOVE: {
