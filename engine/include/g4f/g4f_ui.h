@@ -41,6 +41,12 @@ void g4f_ui_end(g4f_ui* ui);
 void g4f_ui_push_id(g4f_ui* ui, const char* id_utf8);
 void g4f_ui_pop_id(g4f_ui* ui);
 
+// Simple per-UI storage (keyed by current ID stack + key string).
+int g4f_ui_store_get_i(g4f_ui* ui, const char* key_utf8, int defaultValue);
+void g4f_ui_store_set_i(g4f_ui* ui, const char* key_utf8, int value);
+float g4f_ui_store_get_f(g4f_ui* ui, const char* key_utf8, float defaultValue);
+void g4f_ui_store_set_f(g4f_ui* ui, const char* key_utf8, float value);
+
 // Layout
 void g4f_ui_layout_begin(g4f_ui* ui, g4f_ui_layout layout);
 g4f_rect_f g4f_ui_layout_next(g4f_ui* ui, float height);
@@ -57,6 +63,10 @@ int g4f_ui_checkbox(g4f_ui* ui, const char* label_utf8, int* value);
 int g4f_ui_slider_float(g4f_ui* ui, const char* label_utf8, float* value, float minValue, float maxValue);
 int g4f_ui_text_wrapped(g4f_ui* ui, const char* text_utf8, float size_px);
 void g4f_ui_separator(g4f_ui* ui);
+
+// Keyed widgets (values persist inside g4f_ui store).
+int g4f_ui_checkbox_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8, int defaultValue, int* outValue);
+int g4f_ui_slider_float_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8, float defaultValue, float minValue, float maxValue, float* outValue);
 
 #ifdef __cplusplus
 } // extern "C"

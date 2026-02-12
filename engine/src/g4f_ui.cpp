@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -73,6 +74,9 @@ struct g4f_ui {
     int navRight = 0;
     std::vector<uint64_t> navOrder;
 
+    std::unordered_map<uint64_t, int> storeInt;
+    std::unordered_map<uint64_t, float> storeFloat;
+
     struct ScrollState {
         uint64_t id;
         float scrollY;
@@ -101,6 +105,8 @@ g4f_ui* g4f_ui_create(void) {
     ui->frameSeed = 0xC0DEF00DULL;
     ui->idStack.reserve(8);
     ui->scrollStates.reserve(8);
+    ui->storeInt.reserve(64);
+    ui->storeFloat.reserve(64);
     return ui;
 }
 
@@ -154,12 +160,15 @@ void g4f_ui_end(g4f_ui* ui) {
         if (ui->focus == 0) ui->focus = ui->navOrder.front();
         if (ui->navDir != 0) {
             int n = (int)ui->navOrder.size();
-            int idx = 0;
+            int idx = -1;
             for (int i = 0; i < n; i++) {
                 if (ui->navOrder[(size_t)i] == ui->focus) { idx = i; break; }
             }
-            int next = (idx + ui->navDir + n) % n;
-            ui->focus = ui->navOrder[(size_t)next];
+            if (idx < 0) ui->focus = ui->navOrder.front();
+            else {
+                int next = (idx + ui->navDir + n) % n;
+                ui->focus = ui->navOrder[(size_t)next];
+            }
         }
     }
 
@@ -204,6 +213,40 @@ void g4f_ui_layout_spacer(g4f_ui* ui, float height) {
 static uint64_t g4f_ui_make_id(g4f_ui* ui, const char* label) {
     uint64_t seed = ui->idStack.empty() ? ui->frameSeed : ui->idStack.back();
     return hashString(seed, label);
+}
+
+int g4f_ui_store_get_i(g4f_ui* ui, const char* key_utf8, int defaultValue) {
+    if (!ui || !key_utf8) return defaultValue;
+    uint64_t id = g4f_ui_make_id(ui, key_utf8);
+    auto it = ui->storeInt.find(id);
+    if (it == ui->storeInt.end()) {
+        ui->storeInt.emplace(id, defaultValue);
+        return defaultValue;
+    }
+    return it->second;
+}
+
+void g4f_ui_store_set_i(g4f_ui* ui, const char* key_utf8, int value) {
+    if (!ui || !key_utf8) return;
+    uint64_t id = g4f_ui_make_id(ui, key_utf8);
+    ui->storeInt[id] = value;
+}
+
+float g4f_ui_store_get_f(g4f_ui* ui, const char* key_utf8, float defaultValue) {
+    if (!ui || !key_utf8) return defaultValue;
+    uint64_t id = g4f_ui_make_id(ui, key_utf8);
+    auto it = ui->storeFloat.find(id);
+    if (it == ui->storeFloat.end()) {
+        ui->storeFloat.emplace(id, defaultValue);
+        return defaultValue;
+    }
+    return it->second;
+}
+
+void g4f_ui_store_set_f(g4f_ui* ui, const char* key_utf8, float value) {
+    if (!ui || !key_utf8) return;
+    uint64_t id = g4f_ui_make_id(ui, key_utf8);
+    ui->storeFloat[id] = value;
 }
 
 static g4f_ui::ScrollState* uiFindOrCreateScroll(g4f_ui* ui, uint64_t id) {
@@ -406,6 +449,24 @@ int g4f_ui_slider_float(g4f_ui* ui, const char* label_utf8, float* value, float 
     g4f_draw_text(ui->renderer, buf, r.x + r.w - 14.0f - tw, r.y + 8.0f, 16.0f, ui->theme.textMuted);
 
     return isActive ? 1 : 0;
+}
+
+int g4f_ui_checkbox_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8, int defaultValue, int* outValue) {
+    if (!ui || !label_utf8 || !key_utf8) return 0;
+    int v = g4f_ui_store_get_i(ui, key_utf8, defaultValue);
+    int changed = g4f_ui_checkbox(ui, label_utf8, &v);
+    if (changed) g4f_ui_store_set_i(ui, key_utf8, v);
+    if (outValue) *outValue = v;
+    return changed;
+}
+
+int g4f_ui_slider_float_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8, float defaultValue, float minValue, float maxValue, float* outValue) {
+    if (!ui || !label_utf8 || !key_utf8) return 0;
+    float v = g4f_ui_store_get_f(ui, key_utf8, defaultValue);
+    int changed = g4f_ui_slider_float(ui, label_utf8, &v, minValue, maxValue);
+    if (changed) g4f_ui_store_set_f(ui, key_utf8, v);
+    if (outValue) *outValue = v;
+    return changed;
 }
 
 int g4f_ui_text_wrapped(g4f_ui* ui, const char* text_utf8, float size_px) {
