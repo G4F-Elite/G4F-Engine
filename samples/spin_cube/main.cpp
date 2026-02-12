@@ -84,6 +84,9 @@ int main() {
         int cullNone = g4f_ui_store_get_i(uiState, "cullNone", 0);
         int lit = g4f_ui_store_get_i(uiState, "lit", 1);
         int vsync = g4f_ui_store_get_i(uiState, "vsync", 1);
+        float sx = g4f_ui_store_get_f(uiState, "sx", 1.0f);
+        float sy = g4f_ui_store_get_f(uiState, "sy", 1.0f);
+        float sz = g4f_ui_store_get_f(uiState, "sz", 1.0f);
         g4f_gfx_set_vsync(gfx, vsync);
 
         uint32_t tint = g4f_rgba_u32((uint8_t)(80 + 175 * slider), (uint8_t)(140 + 115 * slider), 255, 255);
@@ -107,7 +110,8 @@ int main() {
         g4f_mat4 proj = g4f_camera_fps_proj(&cam, aspect);
         g4f_mat4 view = g4f_camera_fps_view(&cam);
         g4f_mat4 rot = g4f_mat4_mul(g4f_mat4_rotation_y(t * 0.8f), g4f_mat4_rotation_x(t * 0.5f));
-        g4f_mat4 mvp = g4f_mat4_mul(g4f_mat4_mul(rot, view), proj);
+        g4f_mat4 model = g4f_mat4_mul(g4f_mat4_scale(sx, sy, sz), rot);
+        g4f_mat4 mvp = g4f_mat4_mul(g4f_mat4_mul(model, view), proj);
 
         // Light travels in this direction (world space).
         g4f_gfx_set_light_dir(gfx, -0.4f, -1.0f, -0.2f);
@@ -119,7 +123,7 @@ int main() {
         g4f_gfx_material_set_depth(mtlLit, 1, 1);
         g4f_gfx_draw_mesh_xform(gfx, floorMesh, mtlLit, &floorModel, &floorMvp);
 
-        g4f_gfx_draw_mesh_xform(gfx, cube, lit ? mtlLit : mtlUnlit, &rot, &mvp);
+        g4f_gfx_draw_mesh_xform(gfx, cube, lit ? mtlLit : mtlUnlit, &model, &mvp);
 
         g4f_renderer_begin(ui);
         g4f_ui_begin(uiState, ui, window);
@@ -143,6 +147,9 @@ int main() {
         g4f_ui_checkbox_k(uiState, "lit shading (stored)", "lit", 1, &litUi);
         int vsyncUi = 0;
         g4f_ui_checkbox_k(uiState, "vsync (stored)", "vsync", 1, &vsyncUi);
+        g4f_ui_slider_float_k(uiState, "scale X", "sx", 1.0f, 0.25f, 3.0f, &sx);
+        g4f_ui_slider_float_k(uiState, "scale Y", "sy", 1.0f, 0.25f, 3.0f, &sy);
+        g4f_ui_slider_float_k(uiState, "scale Z", "sz", 1.0f, 0.25f, 3.0f, &sz);
         char titleBuf[96];
         int titleChanged = g4f_ui_input_text_k(uiState, "window title", "title", "", 80, titleBuf, (int)sizeof(titleBuf));
         if (titleChanged || titleBuf[0] != '\0') {
