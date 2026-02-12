@@ -6,6 +6,7 @@
 
 #include <array>
 #include <string>
+#include <vector>
 
 std::wstring g4f_utf8_to_wide(const char* utf8);
 std::string g4f_wide_to_utf8(const wchar_t* wide);
@@ -43,11 +44,13 @@ struct WindowState {
     bool cursorCaptured = false;
     bool cursorHidden = false;
     bool ignoreNextMouseMove = false;
+    bool focused = true;
 
     // Raw mouse input (preferred for FPS camera when captured).
     bool rawMouseEnabled = false;
     float rawMouseDx = 0.0f;
     float rawMouseDy = 0.0f;
+    std::vector<uint8_t> rawInputBuf;
 };
 
 struct AppState {

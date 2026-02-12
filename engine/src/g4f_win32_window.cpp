@@ -2,9 +2,69 @@
 
 #include <algorithm>
 #include <cstring>
-#include <vector>
 
 namespace {
+
+static void win32ApplyCursorCapture(g4f_window* window, bool wantCaptured) {
+    if (!window || !window->state.hwnd) return;
+    if (window->state.cursorCaptured == wantCaptured) return;
+    window->state.cursorCaptured = wantCaptured;
+
+    if (wantCaptured) {
+        if (!window->state.rawMouseEnabled) {
+            RAWINPUTDEVICE rid{};
+            rid.usUsagePage = 0x01;
+            rid.usUsage = 0x02;
+            rid.dwFlags = RIDEV_INPUTSINK;
+            rid.hwndTarget = window->state.hwnd;
+            if (RegisterRawInputDevices(&rid, 1, sizeof(rid))) {
+                window->state.rawMouseEnabled = true;
+                window->state.rawMouseDx = 0.0f;
+                window->state.rawMouseDy = 0.0f;
+            }
+        }
+
+        if (!window->state.cursorHidden) {
+            while (ShowCursor(FALSE) >= 0) {}
+            window->state.cursorHidden = true;
+        }
+
+        RECT rc{};
+        GetClientRect(window->state.hwnd, &rc);
+        POINT tl{rc.left, rc.top};
+        POINT br{rc.right, rc.bottom};
+        ClientToScreen(window->state.hwnd, &tl);
+        ClientToScreen(window->state.hwnd, &br);
+        RECT clip{tl.x, tl.y, br.x, br.y};
+        ClipCursor(&clip);
+
+        int cx = (rc.left + rc.right) / 2;
+        int cy = (rc.top + rc.bottom) / 2;
+        POINT p{cx, cy};
+        ClientToScreen(window->state.hwnd, &p);
+        window->state.ignoreNextMouseMove = true;
+        SetCursorPos(p.x, p.y);
+        window->state.mouseX = (float)cx;
+        window->state.mouseY = (float)cy;
+        window->state.prevMouseX = (float)cx;
+        window->state.prevMouseY = (float)cy;
+        window->state.mouseDx = 0.0f;
+        window->state.mouseDy = 0.0f;
+    } else {
+        ClipCursor(nullptr);
+        if (window->state.cursorHidden) {
+            while (ShowCursor(TRUE) < 0) {}
+            window->state.cursorHidden = false;
+        }
+        window->state.rawMouseEnabled = false;
+        window->state.rawMouseDx = 0.0f;
+        window->state.rawMouseDy = 0.0f;
+        window->state.mouseDx = 0.0f;
+        window->state.mouseDy = 0.0f;
+        window->state.prevMouseX = window->state.mouseX;
+        window->state.prevMouseY = window->state.mouseY;
+    }
+}
 
 LRESULT CALLBACK g4f_wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     auto* windowState = (g4f::win32::WindowState*)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
@@ -17,6 +77,14 @@ LRESULT CALLBACK g4f_wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
         }
         case WM_CLOSE: {
             if (windowState) windowState->shouldClose = true;
+            return 0;
+        }
+        case WM_SETFOCUS: {
+            if (windowState) windowState->focused = true;
+            return 0;
+        }
+        case WM_KILLFOCUS: {
+            if (windowState) windowState->focused = false;
             return 0;
         }
         case WM_SIZE: {
@@ -49,10 +117,9 @@ LRESULT CALLBACK g4f_wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             UINT size = 0;
             GetRawInputData((HRAWINPUT)lparam, RID_INPUT, nullptr, &size, sizeof(RAWINPUTHEADER));
             if (size == 0) return 0;
-            std::vector<uint8_t> buf;
-            buf.resize((size_t)size);
-            if (GetRawInputData((HRAWINPUT)lparam, RID_INPUT, buf.data(), &size, sizeof(RAWINPUTHEADER)) != size) return 0;
-            RAWINPUT* ri = (RAWINPUT*)buf.data();
+            windowState->rawInputBuf.resize((size_t)size);
+            if (GetRawInputData((HRAWINPUT)lparam, RID_INPUT, windowState->rawInputBuf.data(), &size, sizeof(RAWINPUTHEADER)) != size) return 0;
+            RAWINPUT* ri = (RAWINPUT*)windowState->rawInputBuf.data();
             if (ri->header.dwType == RIM_TYPEMOUSE) {
                 windowState->rawMouseDx += (float)ri->data.mouse.lLastX;
                 windowState->rawMouseDy += (float)ri->data.mouse.lLastY;
@@ -255,6 +322,10 @@ int g4f_window_poll(g4f_window* window) {
         DispatchMessageW(&msg);
     }
 
+    if (!window->state.focused && window->state.cursorCaptured) {
+        win32ApplyCursorCapture(window, false);
+    }
+
     // Per-frame mouse delta. Prefer WM_INPUT raw deltas when captured.
     if (window->state.cursorCaptured && window->state.hwnd) {
         if (window->state.rawMouseEnabled) {
@@ -387,67 +458,13 @@ int g4f_clipboard_set_utf8(const g4f_window* window, const char* text_utf8) {
 }
 
 void g4f_window_set_cursor_captured(g4f_window* window, int captured) {
-    if (!window || !window->state.hwnd) return;
-    bool wantCaptured = captured ? true : false;
-    if (window->state.cursorCaptured == wantCaptured) return;
-    window->state.cursorCaptured = wantCaptured;
-
-    if (wantCaptured) {
-        if (!window->state.rawMouseEnabled) {
-            RAWINPUTDEVICE rid{};
-            rid.usUsagePage = 0x01;
-            rid.usUsage = 0x02;
-            rid.dwFlags = RIDEV_INPUTSINK;
-            rid.hwndTarget = window->state.hwnd;
-            if (RegisterRawInputDevices(&rid, 1, sizeof(rid))) {
-                window->state.rawMouseEnabled = true;
-                window->state.rawMouseDx = 0.0f;
-                window->state.rawMouseDy = 0.0f;
-            }
-        }
-
-        if (!window->state.cursorHidden) {
-            while (ShowCursor(FALSE) >= 0) {}
-            window->state.cursorHidden = true;
-        }
-
-        RECT rc{};
-        GetClientRect(window->state.hwnd, &rc);
-        POINT tl{rc.left, rc.top};
-        POINT br{rc.right, rc.bottom};
-        ClientToScreen(window->state.hwnd, &tl);
-        ClientToScreen(window->state.hwnd, &br);
-        RECT clip{tl.x, tl.y, br.x, br.y};
-        ClipCursor(&clip);
-
-        int cx = (rc.left + rc.right) / 2;
-        int cy = (rc.top + rc.bottom) / 2;
-        POINT p{cx, cy};
-        ClientToScreen(window->state.hwnd, &p);
-        window->state.ignoreNextMouseMove = true;
-        SetCursorPos(p.x, p.y);
-        window->state.mouseX = (float)cx;
-        window->state.mouseY = (float)cy;
-        window->state.prevMouseX = (float)cx;
-        window->state.prevMouseY = (float)cy;
-        window->state.mouseDx = 0.0f;
-        window->state.mouseDy = 0.0f;
-    } else {
-        ClipCursor(nullptr);
-        if (window->state.cursorHidden) {
-            while (ShowCursor(TRUE) < 0) {}
-            window->state.cursorHidden = false;
-        }
-        window->state.rawMouseEnabled = false;
-        window->state.rawMouseDx = 0.0f;
-        window->state.rawMouseDy = 0.0f;
-        window->state.mouseDx = 0.0f;
-        window->state.mouseDy = 0.0f;
-        window->state.prevMouseX = window->state.mouseX;
-        window->state.prevMouseY = window->state.mouseY;
-    }
+    win32ApplyCursorCapture(window, captured ? true : false);
 }
 
 int g4f_window_cursor_captured(const g4f_window* window) {
     return (window && window->state.cursorCaptured) ? 1 : 0;
+}
+
+int g4f_window_focused(const g4f_window* window) {
+    return (window && window->state.focused) ? 1 : 0;
 }

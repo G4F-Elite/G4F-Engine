@@ -273,6 +273,7 @@ float g4f_mouse_wheel_delta(const g4f_window* window); // per-frame, resets on p
 // When enabled, cursor is hidden and movement becomes "relative" via per-frame dx/dy.
 void g4f_window_set_cursor_captured(g4f_window* window, int captured);
 int g4f_window_cursor_captured(const g4f_window* window);
+int g4f_window_focused(const g4f_window* window);
 
 // Text input (per-frame), filled by the OS (WM_CHAR). Values are Unicode code points.
 int g4f_text_input_count(const g4f_window* window);
