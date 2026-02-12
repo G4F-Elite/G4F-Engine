@@ -5,6 +5,24 @@
 
 namespace {
 
+static void win32ApplyCursorVisibility(g4f_window* window) {
+    if (!window) return;
+    bool wantVisible = window->state.cursorWantedVisible;
+    if (window->state.cursorCaptured) wantVisible = false;
+
+    if (wantVisible) {
+        if (window->state.cursorHidden) {
+            while (ShowCursor(TRUE) < 0) {}
+            window->state.cursorHidden = false;
+        }
+    } else {
+        if (!window->state.cursorHidden) {
+            while (ShowCursor(FALSE) >= 0) {}
+            window->state.cursorHidden = true;
+        }
+    }
+}
+
 static void win32ApplyCursorCapture(g4f_window* window, bool wantCaptured) {
     if (!window || !window->state.hwnd) return;
     if (window->state.cursorCaptured == wantCaptured) return;
@@ -24,10 +42,7 @@ static void win32ApplyCursorCapture(g4f_window* window, bool wantCaptured) {
             }
         }
 
-        if (!window->state.cursorHidden) {
-            while (ShowCursor(FALSE) >= 0) {}
-            window->state.cursorHidden = true;
-        }
+        win32ApplyCursorVisibility(window);
 
         RECT rc{};
         GetClientRect(window->state.hwnd, &rc);
@@ -52,10 +67,7 @@ static void win32ApplyCursorCapture(g4f_window* window, bool wantCaptured) {
         window->state.mouseDy = 0.0f;
     } else {
         ClipCursor(nullptr);
-        if (window->state.cursorHidden) {
-            while (ShowCursor(TRUE) < 0) {}
-            window->state.cursorHidden = false;
-        }
+        win32ApplyCursorVisibility(window);
         window->state.rawMouseEnabled = false;
         window->state.rawMouseDx = 0.0f;
         window->state.rawMouseDy = 0.0f;
@@ -473,4 +485,16 @@ int g4f_window_cursor_captured(const g4f_window* window) {
 
 int g4f_window_focused(const g4f_window* window) {
     return (window && window->state.focused) ? 1 : 0;
+}
+
+void g4f_window_set_cursor_visible(g4f_window* window, int visible) {
+    if (!window) return;
+    window->state.cursorWantedVisible = visible ? true : false;
+    win32ApplyCursorVisibility(window);
+}
+
+int g4f_window_cursor_visible(const g4f_window* window) {
+    if (!window) return 0;
+    if (window->state.cursorCaptured) return 0;
+    return window->state.cursorHidden ? 0 : 1;
 }

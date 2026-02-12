@@ -303,6 +303,11 @@ void g4f_window_set_cursor_captured(g4f_window* window, int captured);
 int g4f_window_cursor_captured(const g4f_window* window);
 int g4f_window_focused(const g4f_window* window);
 
+// Cursor visibility (independent of capture).
+// Note: when cursor is captured, it is forced hidden; visibility is restored on release.
+void g4f_window_set_cursor_visible(g4f_window* window, int visible);
+int g4f_window_cursor_visible(const g4f_window* window);
+
 // Text input (per-frame), filled by the OS (WM_CHAR). Values are Unicode code points.
 int g4f_text_input_count(const g4f_window* window);
 uint32_t g4f_text_input_codepoint(const g4f_window* window, int index);

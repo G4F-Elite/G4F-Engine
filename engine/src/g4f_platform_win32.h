@@ -17,7 +17,7 @@ namespace g4f::win32 {
 constexpr int kKeyStateCount = 512;
 constexpr int kMouseStateCount = 8;
 
-struct WindowState {
+	struct WindowState {
     HWND hwnd = nullptr;
     bool shouldClose = false;
 
@@ -41,10 +41,11 @@ struct WindowState {
     int textInputCount = 0;
     uint16_t pendingHighSurrogate = 0;
 
-    bool cursorCaptured = false;
-    bool cursorHidden = false;
-    bool ignoreNextMouseMove = false;
-    bool focused = true;
+	    bool cursorCaptured = false;
+	    bool cursorHidden = false;
+	    bool cursorWantedVisible = true;
+	    bool ignoreNextMouseMove = false;
+	    bool focused = true;
 
     // Raw mouse input (preferred for FPS camera when captured).
     bool rawMouseEnabled = false;

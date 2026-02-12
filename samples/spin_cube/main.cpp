@@ -82,6 +82,7 @@ int main() {
 
         if (g4f_mouse_pressed(window, G4F_MOUSE_BUTTON_RIGHT)) g4f_window_set_cursor_captured(window, 1);
         if (!g4f_mouse_down(window, G4F_MOUSE_BUTTON_RIGHT)) g4f_window_set_cursor_captured(window, 0);
+        if (!g4f_window_cursor_captured(window)) g4f_window_set_cursor_visible(window, 1);
 
         g4f_camera_fps_update(&cam, window, g4f_ctx3d_dt(ctx));
 

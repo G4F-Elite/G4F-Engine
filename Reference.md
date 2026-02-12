@@ -102,6 +102,7 @@ Immediate-mode UI helper (no editor, all in code):
 
 ## Window helpers
 - Title: `g4f_window_set_title`
+- Cursor visibility: `g4f_window_set_cursor_visible`, `g4f_window_cursor_visible`
 
 ## Text + clipping helpers
 - Wrapped text: `g4f_draw_text_wrapped`, `g4f_measure_text_wrapped`
