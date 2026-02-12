@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <vector>
 #include "g4f/g4f.h"
 #include "g4f/g4f_camera.h"
 #include "g4f/g4f_ui.h"
@@ -19,14 +20,22 @@ int main() {
     g4f_gfx* gfx = g4f_ctx3d_gfx(ctx);
     g4f_gfx_mesh* cube = g4f_gfx_mesh_create_cube_p3n3uv2(gfx, 1.0f);
     g4f_gfx_mesh* floorMesh = g4f_gfx_mesh_create_plane_xz_p3n3uv2(gfx, 12.0f, 6.0f);
-    g4f_gfx_texture* checker = g4f_gfx_texture_create_checker_rgba8(
-        gfx,
-        64,
-        64,
-        8,
-        g4f_rgba_u32(240, 240, 255, 255),
-        g4f_rgba_u32(40, 40, 55, 255)
-    );
+    const int checkerW = 128;
+    const int checkerH = 128;
+    const int checkerCellPx = 16;
+    std::vector<uint32_t> checkerPixels((size_t)checkerW * (size_t)checkerH);
+
+    g4f_gfx_texture* checker = g4f_gfx_texture_create_rgba8_dynamic(gfx, checkerW, checkerH);
+    if (checker) {
+        for (int y = 0; y < checkerH; y++) {
+            for (int x = 0; x < checkerW; x++) {
+                int cell = ((x / checkerCellPx) ^ (y / checkerCellPx)) & 1;
+                checkerPixels[(size_t)y * (size_t)checkerW + (size_t)x] = cell ? g4f_rgba_u32(240, 240, 255, 255) : g4f_rgba_u32(40, 40, 55, 255);
+            }
+        }
+        g4f_gfx_texture_update_rgba8(checker, checkerPixels.data(), checkerW * 4);
+    }
+
     g4f_gfx_material_unlit_desc mdesc{};
     mdesc.tintRgba = g4f_rgba_u32(255, 255, 255, 255);
     mdesc.texture = checker;
@@ -106,6 +115,16 @@ int main() {
         g4f_frame3d_begin(ctx, g4f_rgba_u32(14, 14, 18, 255));
 
         float t = (float)g4f_ctx3d_time(ctx);
+        if (checker) {
+            int phase = (int)(t * 10.0f);
+            for (int y = 0; y < checkerH; y++) {
+                for (int x = 0; x < checkerW; x++) {
+                    int cell = (((x + phase) / checkerCellPx) ^ ((y + phase) / checkerCellPx)) & 1;
+                    checkerPixels[(size_t)y * (size_t)checkerW + (size_t)x] = cell ? g4f_rgba_u32(240, 240, 255, 255) : g4f_rgba_u32(40, 40, 55, 255);
+                }
+            }
+            g4f_gfx_texture_update_rgba8(checker, checkerPixels.data(), checkerW * 4);
+        }
         float aspect = g4f_gfx_aspect(gfx);
         g4f_mat4 proj = g4f_camera_fps_proj(&cam, aspect);
         g4f_mat4 view = g4f_camera_fps_view(&cam);

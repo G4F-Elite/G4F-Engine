@@ -604,10 +604,12 @@ void g4f_gfx_draw_debug_cube(g4f_gfx* gfx, float timeSeconds) {
 }
 
 struct g4f_gfx_texture {
+    g4f_gfx* owner = nullptr;
     ID3D11Texture2D* tex = nullptr;
     ID3D11ShaderResourceView* srv = nullptr;
     int width = 0;
     int height = 0;
+    int dynamic = 0;
 };
 
 struct g4f_gfx_material {
@@ -632,8 +634,10 @@ g4f_gfx_texture* g4f_gfx_texture_create_rgba8(g4f_gfx* gfx, int width, int heigh
     if (rowPitchBytes <= 0) rowPitchBytes = width * 4;
 
     auto* texture = new g4f_gfx_texture();
+    texture->owner = gfx;
     texture->width = width;
     texture->height = height;
+    texture->dynamic = 0;
 
     D3D11_TEXTURE2D_DESC desc{};
     desc.Width = (UINT)width;
@@ -670,6 +674,81 @@ g4f_gfx_texture* g4f_gfx_texture_create_rgba8(g4f_gfx* gfx, int width, int heigh
     return texture;
 }
 
+g4f_gfx_texture* g4f_gfx_texture_create_rgba8_dynamic(g4f_gfx* gfx, int width, int height) {
+    if (!gfx || !gfx->device) return nullptr;
+    if (width <= 0 || height <= 0) return nullptr;
+
+    auto* texture = new g4f_gfx_texture();
+    texture->owner = gfx;
+    texture->width = width;
+    texture->height = height;
+    texture->dynamic = 1;
+
+    D3D11_TEXTURE2D_DESC desc{};
+    desc.Width = (UINT)width;
+    desc.Height = (UINT)height;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.SampleDesc.Count = 1;
+    desc.Usage = D3D11_USAGE_DYNAMIC;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+    HRESULT hr = gfx->device->CreateTexture2D(&desc, nullptr, &texture->tex);
+    if (FAILED(hr) || !texture->tex) {
+        g4f_gfx_texture_destroy(texture);
+        return nullptr;
+    }
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+    srvDesc.Format = desc.Format;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    srvDesc.Texture2D.MipLevels = 1;
+
+    hr = gfx->device->CreateShaderResourceView(texture->tex, &srvDesc, &texture->srv);
+    if (FAILED(hr) || !texture->srv) {
+        g4f_gfx_texture_destroy(texture);
+        return nullptr;
+    }
+
+    return texture;
+}
+
+int g4f_gfx_texture_update_rgba8(g4f_gfx_texture* texture, const void* rgbaPixels, int rowPitchBytes) {
+    if (!texture || !texture->owner || !texture->owner->ctx) return 0;
+    if (!texture->tex || !rgbaPixels) return 0;
+    if (texture->width <= 0 || texture->height <= 0) return 0;
+    if (rowPitchBytes <= 0) rowPitchBytes = texture->width * 4;
+
+    if (texture->dynamic) {
+        D3D11_MAPPED_SUBRESOURCE mapped{};
+        HRESULT hr = texture->owner->ctx->Map(texture->tex, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+        if (FAILED(hr)) return 0;
+
+        const uint8_t* src = (const uint8_t*)rgbaPixels;
+        uint8_t* dst = (uint8_t*)mapped.pData;
+        const int copyRowBytes = texture->width * 4;
+        for (int y = 0; y < texture->height; y++) {
+            std::memcpy(dst + y * (int)mapped.RowPitch, src + y * rowPitchBytes, (size_t)copyRowBytes);
+        }
+
+        texture->owner->ctx->Unmap(texture->tex, 0);
+        return 1;
+    }
+
+    D3D11_BOX box{};
+    box.left = 0;
+    box.top = 0;
+    box.front = 0;
+    box.right = (UINT)texture->width;
+    box.bottom = (UINT)texture->height;
+    box.back = 1;
+    texture->owner->ctx->UpdateSubresource(texture->tex, 0, &box, rgbaPixels, (UINT)rowPitchBytes, 0);
+    return 1;
+}
+
 g4f_gfx_texture* g4f_gfx_texture_create_solid_rgba8(g4f_gfx* gfx, uint32_t rgba) {
     uint32_t pixel = rgba;
     return g4f_gfx_texture_create_rgba8(gfx, 1, 1, &pixel, 4);
@@ -696,6 +775,12 @@ void g4f_gfx_texture_destroy(g4f_gfx_texture* texture) {
     safeRelease((IUnknown**)&texture->srv);
     safeRelease((IUnknown**)&texture->tex);
     delete texture;
+}
+
+void g4f_gfx_texture_get_size(const g4f_gfx_texture* texture, int* width, int* height) {
+    if (!texture) return;
+    if (width) *width = texture->width;
+    if (height) *height = texture->height;
 }
 
 g4f_gfx_material* g4f_gfx_material_create_unlit(g4f_gfx* gfx, const g4f_gfx_material_unlit_desc* desc) {

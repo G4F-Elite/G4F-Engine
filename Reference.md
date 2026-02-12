@@ -127,6 +127,7 @@ int main(){
 ### 3D resources (no files)
 This engine intentionally avoids loading textures/models from disk for 3D. Instead, you create resources from code:
 - Textures: `g4f_gfx_texture_create_rgba8` (pixels come from memory)
+- Textures (dynamic): `g4f_gfx_texture_create_rgba8_dynamic` + `g4f_gfx_texture_update_rgba8` (CPU-updatable RGBA8)
 - Convenience: `g4f_gfx_texture_create_solid_rgba8`, `g4f_gfx_texture_create_checker_rgba8`
 - Materials: `g4f_gfx_material_create_unlit` (tint + optional texture + alpha/depth/cull flags)
 - Materials (lit): `g4f_gfx_material_create_lit` (Lambert lighting, uses global light state)

@@ -238,9 +238,14 @@ void g4f_gfx_draw_debug_cube(g4f_gfx* gfx, float timeSeconds);
 
 // 3D resources (created from code, no asset files).
 g4f_gfx_texture* g4f_gfx_texture_create_rgba8(g4f_gfx* gfx, int width, int height, const void* rgbaPixels, int rowPitchBytes);
+// Creates a CPU-updatable texture (use with g4f_gfx_texture_update_rgba8).
+g4f_gfx_texture* g4f_gfx_texture_create_rgba8_dynamic(g4f_gfx* gfx, int width, int height);
+// Updates the texture pixels. Returns 1 on success, 0 on failure.
+int g4f_gfx_texture_update_rgba8(g4f_gfx_texture* texture, const void* rgbaPixels, int rowPitchBytes);
 g4f_gfx_texture* g4f_gfx_texture_create_solid_rgba8(g4f_gfx* gfx, uint32_t rgba);
 g4f_gfx_texture* g4f_gfx_texture_create_checker_rgba8(g4f_gfx* gfx, int width, int height, int cellSizePx, uint32_t rgbaA, uint32_t rgbaB);
 void g4f_gfx_texture_destroy(g4f_gfx_texture* texture);
+void g4f_gfx_texture_get_size(const g4f_gfx_texture* texture, int* width, int* height);
 
 typedef struct g4f_gfx_material_unlit_desc {
     uint32_t tintRgba;            // multiplies output
