@@ -29,6 +29,11 @@ struct WindowState {
     float mouseX = 0.0f;
     float mouseY = 0.0f;
     float wheelDelta = 0.0f;
+
+    // Text input for the current poll/frame (Unicode code points).
+    uint32_t textInput[64]{};
+    int textInputCount = 0;
+    uint16_t pendingHighSurrogate = 0;
 };
 
 struct AppState {
@@ -48,4 +53,3 @@ struct g4f_window {
     g4f_app* app = nullptr;
     g4f::win32::WindowState state;
 };
-

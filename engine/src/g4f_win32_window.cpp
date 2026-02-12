@@ -38,6 +38,31 @@ LRESULT CALLBACK g4f_wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             }
             return 0;
         }
+        case WM_CHAR: {
+            if (!windowState) break;
+            uint32_t codepoint = 0;
+            uint16_t wc = (uint16_t)wparam;
+            if (wc >= 0xD800 && wc <= 0xDBFF) {
+                windowState->pendingHighSurrogate = wc;
+                return 0;
+            }
+            if (wc >= 0xDC00 && wc <= 0xDFFF) {
+                uint16_t hi = windowState->pendingHighSurrogate;
+                windowState->pendingHighSurrogate = 0;
+                if (hi >= 0xD800 && hi <= 0xDBFF) {
+                    codepoint = 0x10000u + (((uint32_t)(hi - 0xD800u) << 10) | (uint32_t)(wc - 0xDC00u));
+                } else {
+                    codepoint = (uint32_t)wc;
+                }
+            } else {
+                windowState->pendingHighSurrogate = 0;
+                codepoint = (uint32_t)wc;
+            }
+            if (windowState->textInputCount < (int)(sizeof(windowState->textInput) / sizeof(windowState->textInput[0]))) {
+                windowState->textInput[windowState->textInputCount++] = codepoint;
+            }
+            return 0;
+        }
         case WM_LBUTTONDOWN:
         case WM_LBUTTONUP:
         case WM_RBUTTONDOWN:
@@ -187,6 +212,8 @@ int g4f_window_poll(g4f_window* window) {
     window->state.keyPressed.fill(0);
     window->state.mousePressed.fill(0);
     window->state.wheelDelta = 0.0f;
+    window->state.textInputCount = 0;
+    window->state.pendingHighSurrogate = 0;
 
     MSG msg{};
     while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
@@ -227,4 +254,14 @@ float g4f_mouse_y(const g4f_window* window) {
 
 float g4f_mouse_wheel_delta(const g4f_window* window) {
     return window ? window->state.wheelDelta : 0.0f;
+}
+
+int g4f_text_input_count(const g4f_window* window) {
+    return window ? window->state.textInputCount : 0;
+}
+
+uint32_t g4f_text_input_codepoint(const g4f_window* window, int index) {
+    if (!window) return 0;
+    if (index < 0 || index >= window->state.textInputCount) return 0;
+    return window->state.textInput[(size_t)index];
 }

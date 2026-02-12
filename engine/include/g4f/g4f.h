@@ -221,6 +221,10 @@ float g4f_mouse_x(const g4f_window* window);
 float g4f_mouse_y(const g4f_window* window);
 float g4f_mouse_wheel_delta(const g4f_window* window); // per-frame, resets on poll
 
+// Text input (per-frame), filled by the OS (WM_CHAR). Values are Unicode code points.
+int g4f_text_input_count(const g4f_window* window);
+uint32_t g4f_text_input_codepoint(const g4f_window* window, int index);
+
 // 2D Renderer.
 g4f_renderer* g4f_renderer_create(g4f_window* window);
 void g4f_renderer_destroy(g4f_renderer* renderer);
