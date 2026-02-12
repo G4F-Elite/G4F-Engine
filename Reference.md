@@ -88,7 +88,7 @@ Immediate-mode UI helper (no editor, all in code):
 - Panels: `g4f_ui_panel_begin` / `g4f_ui_panel_end` (includes clipping)
 - Scroll panels: `g4f_ui_panel_begin_scroll` (mouse wheel scroll)
 - Disabled stack: `g4f_ui_disabled_begin` / `g4f_ui_disabled_end` (grey out + block interactions)
-- Tooltips: `g4f_ui_tooltip` (for the last submitted item)
+- Tooltips: `g4f_ui_tooltip` (for the last submitted item; also works for disabled items)
 - Keyboard nav (built-in): `UP/DOWN` (or `W/S`) focus, `TAB`/`Shift+TAB` cycle focus, `ENTER/SPACE` activate, `LEFT/RIGHT` (or `A/D`) adjust slider (hold `SHIFT` for fine step)
 - Persistent UI state (optional): `g4f_ui_store_*` and keyed widgets `g4f_ui_checkbox_k` / `g4f_ui_slider_float_k`
 - Text input: `g4f_ui_input_text_k` (uses per-frame OS text input)
