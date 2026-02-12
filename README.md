@@ -22,7 +22,6 @@ Outputs:
 - Main C API header: `engine/include/g4f/g4f.h`
 
 ## Samples
-- `samples/hello2d` — Direct2D text/rect bring-up
-- `samples/backrooms_menu_smoke` — UI + image widgets (procedural bitmap)
-- `samples/spin_cube` — D3D11 mesh/material/lighting + Direct2D UI overlay
-
+- `samples/hello2d` - Direct2D text/rect bring-up
+- `samples/backrooms_menu_smoke` - UI + image widgets (procedural bitmap)
+- `samples/spin_cube` - D3D11 mesh/material/lighting + Direct2D UI overlay
