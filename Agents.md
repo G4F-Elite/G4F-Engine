@@ -47,6 +47,10 @@ If a future change request arrives without a similarly detailed plan, start by r
 - Code-generated materials (no texture files)
 - Keep 2D UI renderer for menus/HUD
 
+Current (bootstrap) state:
+- `g4f_gfx` provides a D3D11 swapchain + a built-in debug cube draw.
+- `g4f_ctx3d` is the simplest 3D integration wrapper.
+
 ## Build outputs
 - `out/lib/libg4f.a` — engine static library
 - `out/bin/hello2d.exe` — sample

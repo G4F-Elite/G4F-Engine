@@ -62,6 +62,25 @@ Two levels:
 - Low-level: `g4f_app` + `g4f_window` + `g4f_renderer`
 - High-level: `g4f_ctx` + `g4f_frame_begin/end` (recommended for most apps)
 
+## 3D Quickstart (D3D11 bring-up)
+Minimal 3D loop (no asset files; shaders/geometry are embedded/generated):
+```cpp
+#include "g4f/g4f.h"
+int main(){
+  g4f_window_desc wd{"My 3D Game", 1280, 720, 1};
+  g4f_ctx3d* ctx = g4f_ctx3d_create(&wd);
+  while(g4f_ctx3d_poll(ctx)){
+    g4f_window* win = g4f_ctx3d_window(ctx);
+    g4f_gfx* gfx = g4f_ctx3d_gfx(ctx);
+    if(g4f_key_pressed(win, G4F_KEY_ESCAPE)) g4f_window_request_close(win);
+    g4f_frame3d_begin(ctx, g4f_rgba_u32(14,14,18,255));
+    g4f_gfx_draw_debug_cube(gfx, (float)g4f_ctx3d_time(ctx));
+    g4f_frame3d_end(ctx);
+  }
+  g4f_ctx3d_destroy(ctx);
+}
+```
+
 2D renderer focuses on:
 - solid rects
 - lines
