@@ -1,5 +1,6 @@
 #include "../include/g4f/g4f_ui.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -159,10 +160,14 @@ void g4f_ui_begin(g4f_ui* ui, g4f_renderer* renderer, const g4f_window* window) 
 void g4f_ui_end(g4f_ui* ui) {
     if (!ui) return;
 
+    if (ui->textActive != 0 && ui->mousePressed && ui->focus != ui->textActive) {
+        ui->textActive = 0;
+    }
+
     // Apply keyboard navigation after all widgets registered.
     if (!ui->navOrder.empty()) {
         if (ui->focus == 0) ui->focus = ui->navOrder.front();
-        if (ui->navDir != 0) {
+        if (ui->navDir != 0 && ui->textActive == 0) {
             int n = (int)ui->navOrder.size();
             int idx = -1;
             for (int i = 0; i < n; i++) {
@@ -270,6 +275,70 @@ static void uiUtf8PopBack(std::string& s) {
     s.erase(i);
 }
 
+static size_t uiUtf8PrevBoundary(const std::string& s, size_t pos) {
+    if (pos == 0) return 0;
+    size_t i = (pos > s.size()) ? s.size() : pos;
+    i--;
+    while (i > 0 && ((uint8_t)s[i] & 0xC0u) == 0x80u) i--;
+    return i;
+}
+
+static size_t uiUtf8NextBoundary(const std::string& s, size_t pos) {
+    size_t i = (pos > s.size()) ? s.size() : pos;
+    if (i >= s.size()) return s.size();
+    i++;
+    while (i < s.size() && ((uint8_t)s[i] & 0xC0u) == 0x80u) i++;
+    return i;
+}
+
+static size_t uiUtf8ClampBoundary(const std::string& s, size_t pos) {
+    size_t i = (pos > s.size()) ? s.size() : pos;
+    while (i > 0 && i < s.size() && ((uint8_t)s[i] & 0xC0u) == 0x80u) i--;
+    return i;
+}
+
+static void uiEraseRange(std::string& s, size_t a, size_t b) {
+    if (a > b) std::swap(a, b);
+    if (a > s.size()) a = s.size();
+    if (b > s.size()) b = s.size();
+    if (a == b) return;
+    s.erase(a, b - a);
+}
+
+static size_t uiFindPrevWordBoundary(const std::string& s, size_t caret) {
+    size_t i = caret;
+    while (i > 0) {
+        size_t prev = uiUtf8PrevBoundary(s, i);
+        unsigned char ch = (unsigned char)s[prev];
+        if (ch > ' ') break;
+        i = prev;
+    }
+    while (i > 0) {
+        size_t prev = uiUtf8PrevBoundary(s, i);
+        unsigned char ch = (unsigned char)s[prev];
+        if (ch <= ' ') break;
+        i = prev;
+    }
+    return i;
+}
+
+static size_t uiFindNextWordBoundary(const std::string& s, size_t caret) {
+    size_t i = caret;
+    while (i < s.size()) {
+        size_t next = uiUtf8NextBoundary(s, i);
+        unsigned char ch = (unsigned char)s[i];
+        if (ch > ' ') break;
+        i = next;
+    }
+    while (i < s.size()) {
+        size_t next = uiUtf8NextBoundary(s, i);
+        unsigned char ch = (unsigned char)s[i];
+        if (ch <= ' ') break;
+        i = next;
+    }
+    return i;
+}
+
 static void uiUtf8AppendCodepoint(std::string& s, uint32_t cp) {
     if (cp <= 0x7Fu) {
         s.push_back((char)cp);
@@ -298,6 +367,10 @@ static void uiUtf8TrimToMaxBytes(std::string& s, int maxBytes) {
     size_t end = (size_t)maxBytes;
     while (end > 0 && ((uint8_t)s[end] & 0xC0u) == 0x80u) end--;
     s.resize(end);
+}
+
+static uint64_t uiDeriveId(uint64_t base, uint64_t salt) {
+    return base ^ (salt + 0x9e3779b97f4a7c15ull + (base << 6) + (base >> 2));
 }
 
 static g4f_ui::ScrollState* uiFindOrCreateScroll(g4f_ui* ui, uint64_t id) {
@@ -552,21 +625,85 @@ int g4f_ui_input_text_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8
     g4f_draw_round_rect_outline(ui->renderer, g4f_rect_f{box.x, box.y - 4.0f, box.w, 22.0f}, 8.0f, 1.5f, (active ? ui->theme.accent : ui->theme.panelBorder));
 
     int changed = 0;
+    uint64_t caretKey = uiDeriveId(id, 0xCACE7710u);
+    uint64_t anchorKey = uiDeriveId(id, 0xA11C0B1Eu);
+    // Caret/selection are stored as UTF-8 byte indices.
+    auto itCaret = ui->storeInt.find(caretKey);
+    auto itAnchor = ui->storeInt.find(anchorKey);
+    if (itCaret == ui->storeInt.end()) ui->storeInt.emplace(caretKey, (int)value.size());
+    if (itAnchor == ui->storeInt.end()) ui->storeInt.emplace(anchorKey, (int)value.size());
+    itCaret = ui->storeInt.find(caretKey);
+    itAnchor = ui->storeInt.find(anchorKey);
+    size_t caret = itCaret != ui->storeInt.end() ? uiUtf8ClampBoundary(value, (size_t)itCaret->second) : value.size();
+    size_t anchor = itAnchor != ui->storeInt.end() ? uiUtf8ClampBoundary(value, (size_t)itAnchor->second) : caret;
+
     if (active && ui->window) {
         int ctrl = g4f_key_down(ui->window, G4F_KEY_LEFT_CONTROL) || g4f_key_down(ui->window, G4F_KEY_RIGHT_CONTROL);
+        int shift = g4f_key_down(ui->window, G4F_KEY_LEFT_SHIFT) || g4f_key_down(ui->window, G4F_KEY_RIGHT_SHIFT);
+
+        bool hasSelection = anchor != caret;
+        size_t selA = hasSelection ? std::min(anchor, caret) : caret;
+        size_t selB = hasSelection ? std::max(anchor, caret) : caret;
+
+        if (ctrl && g4f_key_pressed(ui->window, G4F_KEY_A)) {
+            anchor = 0;
+            caret = value.size();
+        }
+
+        if (g4f_key_pressed(ui->window, G4F_KEY_HOME)) {
+            caret = 0;
+            if (!shift) anchor = caret;
+        }
+        if (g4f_key_pressed(ui->window, G4F_KEY_END)) {
+            caret = value.size();
+            if (!shift) anchor = caret;
+        }
+
+        if (g4f_key_pressed(ui->window, G4F_KEY_LEFT)) {
+            caret = ctrl ? uiFindPrevWordBoundary(value, caret) : uiUtf8PrevBoundary(value, caret);
+            if (!shift) anchor = caret;
+        }
+        if (g4f_key_pressed(ui->window, G4F_KEY_RIGHT)) {
+            caret = ctrl ? uiFindNextWordBoundary(value, caret) : uiUtf8NextBoundary(value, caret);
+            if (!shift) anchor = caret;
+        }
+
         if (ctrl && g4f_key_pressed(ui->window, G4F_KEY_C)) {
-            g4f_clipboard_set_utf8(ui->window, value.c_str());
+            if (hasSelection) {
+                std::string slice = value.substr(selA, selB - selA);
+                g4f_clipboard_set_utf8(ui->window, slice.c_str());
+            } else {
+                g4f_clipboard_set_utf8(ui->window, value.c_str());
+            }
         }
         if (ctrl && g4f_key_pressed(ui->window, G4F_KEY_X)) {
-            g4f_clipboard_set_utf8(ui->window, value.c_str());
-            if (!value.empty()) { value.clear(); changed = 1; }
+            if (hasSelection) {
+                std::string slice = value.substr(selA, selB - selA);
+                g4f_clipboard_set_utf8(ui->window, slice.c_str());
+                uiEraseRange(value, selA, selB);
+                caret = selA;
+                anchor = caret;
+                changed = 1;
+            } else {
+                g4f_clipboard_set_utf8(ui->window, value.c_str());
+                if (!value.empty()) { value.clear(); caret = 0; anchor = 0; changed = 1; }
+            }
         }
         if (ctrl && g4f_key_pressed(ui->window, G4F_KEY_V)) {
             char clip[2048];
             int got = g4f_clipboard_get_utf8(ui->window, clip, (int)sizeof(clip));
             if (got > 0) {
-                value.append(clip, (size_t)got);
+                if (hasSelection) {
+                    uiEraseRange(value, selA, selB);
+                    caret = selA;
+                    anchor = caret;
+                }
+                value.insert(caret, clip, (size_t)got);
+                caret += (size_t)got;
+                anchor = caret;
                 uiUtf8TrimToMaxBytes(value, maxBytes);
+                caret = uiUtf8ClampBoundary(value, caret);
+                anchor = caret;
                 changed = 1;
             }
         }
@@ -574,25 +711,88 @@ int g4f_ui_input_text_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8
         if (g4f_key_pressed(ui->window, G4F_KEY_ENTER)) {
             ui->textActive = 0;
         }
+        if (g4f_key_pressed(ui->window, G4F_KEY_DELETE)) {
+            if (hasSelection) {
+                uiEraseRange(value, selA, selB);
+                caret = selA;
+                anchor = caret;
+                changed = 1;
+            } else if (caret < value.size()) {
+                size_t next = ctrl ? uiFindNextWordBoundary(value, caret) : uiUtf8NextBoundary(value, caret);
+                uiEraseRange(value, caret, next);
+                changed = 1;
+            }
+        }
         if (g4f_key_pressed(ui->window, G4F_KEY_BACKSPACE) && !value.empty()) {
-            uiUtf8PopBack(value);
-            changed = 1;
+            if (hasSelection) {
+                uiEraseRange(value, selA, selB);
+                caret = selA;
+                anchor = caret;
+                changed = 1;
+            } else if (caret > 0) {
+                size_t prev = ctrl ? uiFindPrevWordBoundary(value, caret) : uiUtf8PrevBoundary(value, caret);
+                uiEraseRange(value, prev, caret);
+                caret = prev;
+                anchor = caret;
+                changed = 1;
+            }
         }
         int count = g4f_text_input_count(ui->window);
         for (int i = 0; i < count; i++) {
             uint32_t cp = g4f_text_input_codepoint(ui->window, i);
             if (cp == '\r' || cp == '\n' || cp == '\t') continue;
             if (cp < 32) continue;
+            if (hasSelection) {
+                uiEraseRange(value, selA, selB);
+                caret = selA;
+                anchor = caret;
+                hasSelection = false;
+            }
             std::string before = value;
-            uiUtf8AppendCodepoint(value, cp);
-            if ((int)value.size() > maxBytes) value = before;
-            else changed = 1;
+            std::string insert;
+            uiUtf8AppendCodepoint(insert, cp);
+            value.insert(caret, insert);
+            caret += insert.size();
+            anchor = caret;
+            if ((int)value.size() > maxBytes) {
+                value = before;
+                caret = uiUtf8ClampBoundary(value, caret);
+                anchor = caret;
+            } else {
+                changed = 1;
+            }
         }
+    }
+
+    // Store caret/anchor
+    ui->storeInt[caretKey] = (int)caret;
+    ui->storeInt[anchorKey] = (int)anchor;
+
+    g4f_clip_push(ui->renderer, g4f_rect_f{box.x + 2.0f, box.y - 3.0f, box.w - 4.0f, 20.0f});
+
+    if (!value.empty() && active && anchor != caret) {
+        size_t selA = std::min(anchor, caret);
+        size_t selB = std::max(anchor, caret);
+        std::string left = value.substr(0, selA);
+        std::string mid = value.substr(selA, selB - selA);
+        float lw = 0.0f, lh = 0.0f, mw = 0.0f, mh = 0.0f;
+        g4f_measure_text(ui->renderer, left.c_str(), 16.0f, &lw, &lh);
+        g4f_measure_text(ui->renderer, mid.c_str(), 16.0f, &mw, &mh);
+        g4f_draw_rect(ui->renderer, g4f_rect_f{box.x + 6.0f + lw, box.y - 1.0f, mw, 18.0f}, blendAlpha(ui->theme.accent, 120));
     }
 
     const char* drawText = value.empty() ? (placeholder_utf8 ? placeholder_utf8 : "") : value.c_str();
     uint32_t drawColor = value.empty() ? ui->theme.textMuted : ui->theme.text;
     g4f_draw_text(ui->renderer, drawText, box.x + 6.0f, box.y - 2.0f, 16.0f, drawColor);
+
+    if (active) {
+        std::string left = value.substr(0, caret);
+        float lw = 0.0f, lh = 0.0f;
+        g4f_measure_text(ui->renderer, left.c_str(), 16.0f, &lw, &lh);
+        float cx = box.x + 6.0f + lw;
+        g4f_draw_line(ui->renderer, cx, box.y - 1.0f, cx, box.y + 16.0f, 1.5f, ui->theme.text);
+    }
+    g4f_clip_pop(ui->renderer);
 
     if (out_utf8 && out_cap > 0) {
         std::snprintf(out_utf8, (size_t)out_cap, "%s", value.c_str());
