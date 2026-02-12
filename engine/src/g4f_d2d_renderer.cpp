@@ -215,7 +215,11 @@ void g4f_draw_line(g4f_renderer* renderer, float x1, float y1, float x2, float y
     else if (renderer->gfxContext) renderer->gfxContext->DrawLine(D2D1::Point2F(x1, y1), D2D1::Point2F(x2, y2), renderer->brush, thickness);
 }
 
-static IDWriteTextFormat* g4f_get_text_format(g4f_renderer* renderer, int sizePx, bool wrap) {
+static IDWriteTextFormat* g4f_get_text_format(g4f_renderer* renderer, int sizePx, bool wrap, const char* contextUtf8) {
+    if (!renderer || !renderer->dwriteFactory) {
+        g4f_set_last_errorf("%s: renderer/dwriteFactory is null", contextUtf8 ? contextUtf8 : "g4f_text");
+        return nullptr;
+    }
     if (sizePx < 6) sizePx = 6;
     if (sizePx > 200) sizePx = 200;
 
@@ -234,7 +238,10 @@ static IDWriteTextFormat* g4f_get_text_format(g4f_renderer* renderer, int sizePx
         L"",
         &format
     );
-    if (FAILED(hr) || !format) return nullptr;
+    if (FAILED(hr) || !format) {
+        g4f_set_last_hresult_error("g4f_text: CreateTextFormat failed", hr);
+        return nullptr;
+    }
     format->SetWordWrapping(wrap ? DWRITE_WORD_WRAPPING_WRAP : DWRITE_WORD_WRAPPING_NO_WRAP);
 
     renderer->textFormatsBySizePx.emplace(key, format);
@@ -247,7 +254,7 @@ void g4f_draw_text(g4f_renderer* renderer, const char* text_utf8, float x, float
     if (text.empty()) return;
 
     int sizePx = (int)(size_px + 0.5f);
-    IDWriteTextFormat* format = g4f_get_text_format(renderer, sizePx, false);
+    IDWriteTextFormat* format = g4f_get_text_format(renderer, sizePx, false, "g4f_draw_text");
     if (!format) return;
 
     renderer->brush->SetColor(g4f_color_from_rgba_u32(rgba));
@@ -265,7 +272,7 @@ void g4f_draw_text_wrapped(g4f_renderer* renderer, const char* text_utf8, g4f_re
     if (text.empty()) return;
 
     int sizePx = (int)(size_px + 0.5f);
-    IDWriteTextFormat* format = g4f_get_text_format(renderer, sizePx, true);
+    IDWriteTextFormat* format = g4f_get_text_format(renderer, sizePx, true, "g4f_draw_text_wrapped");
     if (!format) return;
 
     renderer->brush->SetColor(g4f_color_from_rgba_u32(rgba));
@@ -275,7 +282,10 @@ void g4f_draw_text_wrapped(g4f_renderer* renderer, const char* text_utf8, g4f_re
 
     IDWriteTextLayout* layout = nullptr;
     HRESULT hr = renderer->dwriteFactory->CreateTextLayout(text.c_str(), (UINT32)text.size(), format, w, h, &layout);
-    if (FAILED(hr) || !layout) return;
+    if (FAILED(hr) || !layout) {
+        g4f_set_last_hresult_error("g4f_draw_text_wrapped: CreateTextLayout failed", hr);
+        return;
+    }
 
     ID2D1RenderTarget* target = g4f_active_target(renderer);
     if (target) target->DrawTextLayout(D2D1::Point2F(bounds.x, bounds.y), layout, renderer->brush);
@@ -420,12 +430,15 @@ void g4f_measure_text(g4f_renderer* renderer, const char* text_utf8, float size_
     std::wstring text = g4f_utf8_to_wide(text_utf8);
     if (text.empty()) return;
     int sizePx = (int)(size_px + 0.5f);
-    IDWriteTextFormat* format = g4f_get_text_format(renderer, sizePx, false);
+    IDWriteTextFormat* format = g4f_get_text_format(renderer, sizePx, false, "g4f_measure_text");
     if (!format) return;
 
     IDWriteTextLayout* layout = nullptr;
     HRESULT hr = renderer->dwriteFactory->CreateTextLayout(text.c_str(), (UINT32)text.size(), format, 10000.0f, 10000.0f, &layout);
-    if (FAILED(hr) || !layout) return;
+    if (FAILED(hr) || !layout) {
+        g4f_set_last_hresult_error("g4f_measure_text: CreateTextLayout failed", hr);
+        return;
+    }
     DWRITE_TEXT_METRICS m{};
     layout->GetMetrics(&m);
     layout->Release();
@@ -440,7 +453,7 @@ void g4f_measure_text_wrapped(g4f_renderer* renderer, const char* text_utf8, flo
     std::wstring text = g4f_utf8_to_wide(text_utf8);
     if (text.empty()) return;
     int sizePx = (int)(size_px + 0.5f);
-    IDWriteTextFormat* format = g4f_get_text_format(renderer, sizePx, true);
+    IDWriteTextFormat* format = g4f_get_text_format(renderer, sizePx, true, "g4f_measure_text_wrapped");
     if (!format) return;
 
     float w = (max_w > 0.0f) ? max_w : 1.0f;
@@ -448,7 +461,10 @@ void g4f_measure_text_wrapped(g4f_renderer* renderer, const char* text_utf8, flo
 
     IDWriteTextLayout* layout = nullptr;
     HRESULT hr = renderer->dwriteFactory->CreateTextLayout(text.c_str(), (UINT32)text.size(), format, w, h, &layout);
-    if (FAILED(hr) || !layout) return;
+    if (FAILED(hr) || !layout) {
+        g4f_set_last_hresult_error("g4f_measure_text_wrapped: CreateTextLayout failed", hr);
+        return;
+    }
     DWRITE_TEXT_METRICS m{};
     layout->GetMetrics(&m);
     layout->Release();

@@ -911,19 +911,36 @@ g4f_gfx_texture* g4f_gfx_texture_create_rgba8_dynamic(g4f_gfx* gfx, int width, i
 }
 
 int g4f_gfx_texture_update_rgba8(g4f_gfx_texture* texture, const void* rgbaPixels, int rowPitchBytes) {
-    if (!texture || !texture->owner || !texture->owner->ctx) return 0;
-    if (!texture->tex || !rgbaPixels) return 0;
-    if (texture->width <= 0 || texture->height <= 0) return 0;
-    if (rowPitchBytes <= 0) rowPitchBytes = texture->width * 4;
+    if (!texture || !texture->owner || !texture->owner->ctx) {
+        g4f_set_last_error("g4f_gfx_texture_update_rgba8: invalid texture/owner");
+        return 0;
+    }
+    if (!texture->tex || !rgbaPixels) {
+        g4f_set_last_error("g4f_gfx_texture_update_rgba8: invalid args");
+        return 0;
+    }
+    if (texture->width <= 0 || texture->height <= 0) {
+        g4f_set_last_error("g4f_gfx_texture_update_rgba8: invalid texture size");
+        return 0;
+    }
+    const int minRowPitchBytes = texture->width * 4;
+    if (rowPitchBytes <= 0) rowPitchBytes = minRowPitchBytes;
+    if (rowPitchBytes < minRowPitchBytes) {
+        g4f_set_last_error("g4f_gfx_texture_update_rgba8: rowPitchBytes too small");
+        return 0;
+    }
 
     if (texture->dynamic) {
         D3D11_MAPPED_SUBRESOURCE mapped{};
         HRESULT hr = texture->owner->ctx->Map(texture->tex, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
-        if (FAILED(hr)) return 0;
+        if (FAILED(hr)) {
+            g4f_set_last_hresult_error("g4f_gfx_texture_update_rgba8: Map failed", hr);
+            return 0;
+        }
 
         const uint8_t* src = (const uint8_t*)rgbaPixels;
         uint8_t* dst = (uint8_t*)mapped.pData;
-        const int copyRowBytes = texture->width * 4;
+        const int copyRowBytes = minRowPitchBytes;
         for (int y = 0; y < texture->height; y++) {
             std::memcpy(dst + y * (int)mapped.RowPitch, src + y * rowPitchBytes, (size_t)copyRowBytes);
         }
