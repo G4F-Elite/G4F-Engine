@@ -384,6 +384,54 @@ static void uiUtf8TrimToMaxBytes(std::string& s, int maxBytes) {
     s.resize(end);
 }
 
+static std::vector<size_t> uiUtf8Boundaries(const std::string& s) {
+    std::vector<size_t> boundaries;
+    boundaries.reserve(s.size() + 1);
+    boundaries.push_back(0);
+    size_t pos = 0;
+    while (pos < s.size()) {
+        pos = uiUtf8NextBoundary(s, pos);
+        boundaries.push_back(pos);
+    }
+    if (boundaries.empty() || boundaries.back() != s.size()) boundaries.push_back(s.size());
+    return boundaries;
+}
+
+static size_t uiCaretFromX(g4f_renderer* renderer, const std::string& s, float fontSizePx, float x) {
+    if (!renderer) return 0;
+    if (s.empty()) return 0;
+    if (x <= 0.0f) return 0;
+
+    float fullW = 0.0f, fullH = 0.0f;
+    g4f_measure_text(renderer, s.c_str(), fontSizePx, &fullW, &fullH);
+    if (x >= fullW) return s.size();
+
+    std::vector<size_t> boundaries = uiUtf8Boundaries(s);
+    if (boundaries.size() <= 1) return 0;
+
+    auto widthAt = [&](size_t boundary) -> float {
+        if (boundary == 0) return 0.0f;
+        std::string left = s.substr(0, boundary);
+        float w = 0.0f, h = 0.0f;
+        g4f_measure_text(renderer, left.c_str(), fontSizePx, &w, &h);
+        return w;
+    };
+
+    int lo = 0;
+    int hi = (int)boundaries.size() - 1;
+    while (hi - lo > 1) {
+        int mid = (lo + hi) / 2;
+        float w = widthAt(boundaries[(size_t)mid]);
+        if (w < x) lo = mid;
+        else hi = mid;
+    }
+
+    float wLo = widthAt(boundaries[(size_t)lo]);
+    float wHi = widthAt(boundaries[(size_t)hi]);
+    if ((x - wLo) <= (wHi - x)) return boundaries[(size_t)lo];
+    return boundaries[(size_t)hi];
+}
+
 static uint64_t uiDeriveId(uint64_t base, uint64_t salt) {
     return base ^ (salt + 0x9e3779b97f4a7c15ull + (base << 6) + (base >> 2));
 }
@@ -636,21 +684,46 @@ int g4f_ui_input_text_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8
 
     // Input box area
     g4f_rect_f box{r.x + 14.0f, r.y + 28.0f, r.w - 28.0f, 14.0f};
-    g4f_draw_round_rect(ui->renderer, g4f_rect_f{box.x, box.y - 4.0f, box.w, 22.0f}, 8.0f, blendAlpha(ui->theme.panelBg, 255));
-    g4f_draw_round_rect_outline(ui->renderer, g4f_rect_f{box.x, box.y - 4.0f, box.w, 22.0f}, 8.0f, 1.5f, (active ? ui->theme.accent : ui->theme.panelBorder));
 
     int changed = 0;
     uint64_t caretKey = uiDeriveId(id, 0xCACE7710u);
     uint64_t anchorKey = uiDeriveId(id, 0xA11C0B1Eu);
+    uint64_t dragKey = uiDeriveId(id, 0xD2A611A5u);
     // Caret/selection are stored as UTF-8 byte indices.
     auto itCaret = ui->storeInt.find(caretKey);
     auto itAnchor = ui->storeInt.find(anchorKey);
     if (itCaret == ui->storeInt.end()) ui->storeInt.emplace(caretKey, (int)value.size());
     if (itAnchor == ui->storeInt.end()) ui->storeInt.emplace(anchorKey, (int)value.size());
+    if (ui->storeInt.find(dragKey) == ui->storeInt.end()) ui->storeInt.emplace(dragKey, 0);
     itCaret = ui->storeInt.find(caretKey);
     itAnchor = ui->storeInt.find(anchorKey);
     size_t caret = itCaret != ui->storeInt.end() ? uiUtf8ClampBoundary(value, (size_t)itCaret->second) : value.size();
     size_t anchor = itAnchor != ui->storeInt.end() ? uiUtf8ClampBoundary(value, (size_t)itAnchor->second) : caret;
+
+    if (!ui->mouseDown) ui->storeInt[dragKey] = 0;
+
+    // Mouse caret + drag selection (inside the input box).
+    if (ui->window && ui->mousePressed) {
+        g4f_rect_f boxHit{box.x, box.y - 4.0f, box.w, 22.0f};
+        if (pointInRect(ui->mouseX, ui->mouseY, boxHit)) {
+            int shift = g4f_key_down(ui->window, G4F_KEY_LEFT_SHIFT) || g4f_key_down(ui->window, G4F_KEY_RIGHT_SHIFT);
+            ui->textActive = id;
+            ui->storeInt[dragKey] = 1;
+            float localX = ui->mouseX - (box.x + 6.0f);
+            caret = uiCaretFromX(ui->renderer, value, 16.0f, localX);
+            if (!shift) anchor = caret;
+        }
+    }
+
+    if (ui->window && ui->textActive == id && ui->storeInt[dragKey] && ui->active == id && ui->mouseDown) {
+        float localX = ui->mouseX - (box.x + 6.0f);
+        caret = uiCaretFromX(ui->renderer, value, 16.0f, localX);
+    }
+
+    active = ui->textActive == id;
+
+    g4f_draw_round_rect(ui->renderer, g4f_rect_f{box.x, box.y - 4.0f, box.w, 22.0f}, 8.0f, blendAlpha(ui->theme.panelBg, 255));
+    g4f_draw_round_rect_outline(ui->renderer, g4f_rect_f{box.x, box.y - 4.0f, box.w, 22.0f}, 8.0f, 1.5f, (active ? ui->theme.accent : ui->theme.panelBorder));
 
     if (active && ui->window) {
         int ctrl = g4f_key_down(ui->window, G4F_KEY_LEFT_CONTROL) || g4f_key_down(ui->window, G4F_KEY_RIGHT_CONTROL);
