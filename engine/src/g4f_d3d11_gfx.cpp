@@ -48,6 +48,55 @@ static void safeRelease(IUnknown** ptr) {
     g4f_safe_release(ptr);
 }
 
+static g4f_mat4 mat4NormalMatrix(g4f_mat4 model) {
+    // For row-vector convention: n_world = n_model * (M^-1)^T.
+    // We only use the upper-left 3x3 of M (ignore translation).
+    const float a00 = model.m[0];
+    const float a01 = model.m[1];
+    const float a02 = model.m[2];
+    const float a10 = model.m[4];
+    const float a11 = model.m[5];
+    const float a12 = model.m[6];
+    const float a20 = model.m[8];
+    const float a21 = model.m[9];
+    const float a22 = model.m[10];
+
+    const float det =
+        a00 * (a11 * a22 - a12 * a21) -
+        a01 * (a10 * a22 - a12 * a20) +
+        a02 * (a10 * a21 - a11 * a20);
+
+    if (std::fabs(det) <= 1e-8f) {
+        return g4f_mat4_identity();
+    }
+
+    const float invDet = 1.0f / det;
+
+    // Inverse of 3x3 (row-major).
+    const float inv00 = (a11 * a22 - a12 * a21) * invDet;
+    const float inv01 = (a02 * a21 - a01 * a22) * invDet;
+    const float inv02 = (a01 * a12 - a02 * a11) * invDet;
+    const float inv10 = (a12 * a20 - a10 * a22) * invDet;
+    const float inv11 = (a00 * a22 - a02 * a20) * invDet;
+    const float inv12 = (a02 * a10 - a00 * a12) * invDet;
+    const float inv20 = (a10 * a21 - a11 * a20) * invDet;
+    const float inv21 = (a01 * a20 - a00 * a21) * invDet;
+    const float inv22 = (a00 * a11 - a01 * a10) * invDet;
+
+    // Normal matrix N = (M^-1)^T.
+    g4f_mat4 out = g4f_mat4_identity();
+    out.m[0] = inv00;
+    out.m[1] = inv10;
+    out.m[2] = inv20;
+    out.m[4] = inv01;
+    out.m[5] = inv11;
+    out.m[6] = inv21;
+    out.m[8] = inv02;
+    out.m[9] = inv12;
+    out.m[10] = inv22;
+    return out;
+}
+
 static HRESULT compileHlsl(
     const char* source,
     const char* entryPoint,
@@ -81,6 +130,7 @@ struct CbMaterial {
     float hasTex;
     float pad[3];
     g4f_mat4 model;
+    g4f_mat4 normal;
     float lightDir[4];
     float lightColor[4];
     float ambientColor[4];
@@ -291,6 +341,7 @@ cbuffer CB0 : register(b0) {
   float uHasTex;
   float3 _pad;
   row_major float4x4 uModel;
+  row_major float4x4 uNormal;
   float4 uLightDir;
   float4 uLightColor;
   float4 uAmbientColor;
@@ -303,7 +354,7 @@ PSIn VSMain(VSIn i){
   PSIn o;
   o.pos = mul(float4(i.pos,1.0), uMvp);
   o.uv = i.uv;
-  o.n = mul(float4(i.n, 0.0), uModel).xyz;
+  o.n = mul(float4(i.n, 0.0), uNormal).xyz;
   return o;
 }
 float4 PSUnlit(PSIn i) : SV_Target {
@@ -839,6 +890,7 @@ void g4f_gfx_draw_mesh_xform(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_g
     cb.tint[3] = material->tint[3];
     cb.hasTex = material->srv ? 1.0f : 0.0f;
     cb.model = model ? *model : g4f_mat4_identity();
+    cb.normal = mat4NormalMatrix(cb.model);
     cb.lightDir[0] = gfx->lightDir[0];
     cb.lightDir[1] = gfx->lightDir[1];
     cb.lightDir[2] = gfx->lightDir[2];
