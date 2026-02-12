@@ -58,6 +58,11 @@ int main() {
     assert(mesh0 == nullptr);
     expectErrorContains("g4f_gfx_mesh_create_p3n3uv2");
 
+    g4f_clear_error();
+    int updated0 = g4f_gfx_texture_update_rgba8(nullptr, &pixel, 4);
+    assert(updated0 == 0);
+    expectErrorContains("g4f_gfx_texture_update_rgba8");
+
     // Window create validation.
     g4f_app_desc appDesc{};
     g4f_app* app = g4f_app_create(&appDesc);
