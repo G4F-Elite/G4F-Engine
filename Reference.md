@@ -62,6 +62,13 @@ Two levels:
 - Low-level: `g4f_app` + `g4f_window` + `g4f_renderer`
 - High-level: `g4f_ctx` + `g4f_frame_begin/end` (recommended for most apps)
 
+## Diagnostics (when something returns nullptr)
+- `g4f_last_error()` returns a **thread-local** UTF-8 string describing the last failure.
+- `g4f_clear_error()` clears it.
+- Intended usage:
+  - call `*_create()`
+  - if it returns `nullptr`, print `g4f_last_error()` to see why
+
 ## 3D + UI convenience context
 If you always use 3D + a 2D overlay UI, there is a convenience wrapper:
 - Header: `engine/include/g4f/g4f_ctx3d_ui.h`
