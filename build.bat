@@ -56,8 +56,8 @@ echo === Build: samples ===
 %CXX% %CXXFLAGS% %INC_ENGINE% samples\spin_cube\main.cpp -L"%LIB%" -lg4f %LD_ENGINE_3D% -o "%BIN%\spin_cube.exe" || exit /b 1
 
 echo === Build: engine tests ===
-%CXX% %CXXFLAGS% %INC_ENGINE% tests\engine_keycodes_tests.cpp -o "%BIN%\engine_keycodes_tests.exe" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% tests\ui_layout_tests.cpp -o "%BIN%\ui_layout_tests.exe" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\engine_keycodes_tests.cpp -L"%LIB%" -lg4f -o "%BIN%\engine_keycodes_tests.exe" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\ui_layout_tests.cpp -L"%LIB%" -lg4f -o "%BIN%\ui_layout_tests.exe" || exit /b 1
 
 echo === Run: engine tests ===
 "%BIN%\engine_keycodes_tests.exe" || exit /b 1
