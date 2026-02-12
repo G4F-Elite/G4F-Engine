@@ -28,7 +28,7 @@ void testRiskEventRanges() {
             assert(risk == 1 || risk == 2 || risk == 3 || risk == 4);
             float dur = choosePoiRiskDuration(risk, i);
             if (risk == 2) assert(dur == 0.10f);
-            else assert(dur >= 7.0f && dur <= 13.0f);
+            else assert(dur >= 10.0f && dur <= 16.0f);
         }
     }
 }
