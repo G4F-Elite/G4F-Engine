@@ -210,6 +210,8 @@ g4f_gfx* g4f_gfx_create(g4f_window* window);
 void g4f_gfx_destroy(g4f_gfx* gfx);
 void g4f_gfx_begin(g4f_gfx* gfx, uint32_t clearRgba);
 void g4f_gfx_end(g4f_gfx* gfx); // presents
+void g4f_gfx_get_size(const g4f_gfx* gfx, int* width, int* height);
+float g4f_gfx_aspect(const g4f_gfx* gfx);
 
 // High-level 3D context (simplest 3D integration).
 g4f_ctx3d* g4f_ctx3d_create(const g4f_window_desc* windowDesc);
@@ -229,6 +231,8 @@ void g4f_gfx_draw_debug_cube(g4f_gfx* gfx, float timeSeconds);
 
 // 3D resources (created from code, no asset files).
 g4f_gfx_texture* g4f_gfx_texture_create_rgba8(g4f_gfx* gfx, int width, int height, const void* rgbaPixels, int rowPitchBytes);
+g4f_gfx_texture* g4f_gfx_texture_create_solid_rgba8(g4f_gfx* gfx, uint32_t rgba);
+g4f_gfx_texture* g4f_gfx_texture_create_checker_rgba8(g4f_gfx* gfx, int width, int height, int cellSizePx, uint32_t rgbaA, uint32_t rgbaB);
 void g4f_gfx_texture_destroy(g4f_gfx_texture* texture);
 
 typedef struct g4f_gfx_material_unlit_desc {
@@ -248,6 +252,7 @@ typedef struct g4f_gfx_vertex_p3n3uv2 {
 } g4f_gfx_vertex_p3n3uv2;
 
 g4f_gfx_mesh* g4f_gfx_mesh_create_p3n3uv2(g4f_gfx* gfx, const g4f_gfx_vertex_p3n3uv2* vertices, int vertexCount, const uint16_t* indices, int indexCount);
+g4f_gfx_mesh* g4f_gfx_mesh_create_cube_p3n3uv2(g4f_gfx* gfx, float halfExtent);
 void g4f_gfx_mesh_destroy(g4f_gfx_mesh* mesh);
 void g4f_gfx_draw_mesh(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_gfx_material* material, const g4f_mat4* mvp);
 

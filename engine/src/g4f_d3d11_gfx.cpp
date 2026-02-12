@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstring>
 #include <cstdint>
+#include <vector>
 
 namespace {
 
@@ -414,6 +415,18 @@ void g4f_gfx_begin(g4f_gfx* gfx, uint32_t clearRgba) {
     gfx->ctx->RSSetViewports(1, &vp);
 }
 
+void g4f_gfx_get_size(const g4f_gfx* gfx, int* width, int* height) {
+    if (!gfx) return;
+    if (width) *width = gfx->cachedW;
+    if (height) *height = gfx->cachedH;
+}
+
+float g4f_gfx_aspect(const g4f_gfx* gfx) {
+    if (!gfx) return 1.0f;
+    if (gfx->cachedH <= 0) return 1.0f;
+    return (float)gfx->cachedW / (float)gfx->cachedH;
+}
+
 void g4f_gfx_draw_debug_cube(g4f_gfx* gfx, float timeSeconds) {
     if (!gfx || !gfx->ctx) return;
 
@@ -501,6 +514,27 @@ g4f_gfx_texture* g4f_gfx_texture_create_rgba8(g4f_gfx* gfx, int width, int heigh
     return texture;
 }
 
+g4f_gfx_texture* g4f_gfx_texture_create_solid_rgba8(g4f_gfx* gfx, uint32_t rgba) {
+    uint32_t pixel = rgba;
+    return g4f_gfx_texture_create_rgba8(gfx, 1, 1, &pixel, 4);
+}
+
+g4f_gfx_texture* g4f_gfx_texture_create_checker_rgba8(g4f_gfx* gfx, int width, int height, int cellSizePx, uint32_t rgbaA, uint32_t rgbaB) {
+    if (!gfx) return nullptr;
+    if (width <= 0 || height <= 0) return nullptr;
+    int cell = (cellSizePx <= 0) ? 8 : cellSizePx;
+    std::vector<uint32_t> pixels((size_t)width * (size_t)height);
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int cx = (x / cell) & 1;
+            int cy = (y / cell) & 1;
+            int on = (cx ^ cy) & 1;
+            pixels[(size_t)y * (size_t)width + (size_t)x] = on ? rgbaA : rgbaB;
+        }
+    }
+    return g4f_gfx_texture_create_rgba8(gfx, width, height, pixels.data(), width * 4);
+}
+
 void g4f_gfx_texture_destroy(g4f_gfx_texture* texture) {
     if (!texture) return;
     safeRelease((IUnknown**)&texture->srv);
@@ -576,6 +610,39 @@ g4f_gfx_mesh* g4f_gfx_mesh_create_p3n3uv2(g4f_gfx* gfx, const g4f_gfx_vertex_p3n
     }
 
     return mesh;
+}
+
+g4f_gfx_mesh* g4f_gfx_mesh_create_cube_p3n3uv2(g4f_gfx* gfx, float halfExtent) {
+    float e = (halfExtent > 0.0f) ? halfExtent : 1.0f;
+    const g4f_gfx_vertex_p3n3uv2 vertices[] = {
+        // -Z
+        {-e,-e,-e, 0,0,-1, 0,1}, {+e,-e,-e, 0,0,-1, 1,1}, {+e,+e,-e, 0,0,-1, 1,0}, {-e,+e,-e, 0,0,-1, 0,0},
+        // +Z
+        {-e,-e,+e, 0,0,+1, 0,1}, {-e,+e,+e, 0,0,+1, 0,0}, {+e,+e,+e, 0,0,+1, 1,0}, {+e,-e,+e, 0,0,+1, 1,1},
+        // -Y
+        {-e,-e,-e, 0,-1,0, 0,1}, {-e,-e,+e, 0,-1,0, 0,0}, {+e,-e,+e, 0,-1,0, 1,0}, {+e,-e,-e, 0,-1,0, 1,1},
+        // +Y
+        {-e,+e,-e, 0,+1,0, 0,1}, {+e,+e,-e, 0,+1,0, 1,1}, {+e,+e,+e, 0,+1,0, 1,0}, {-e,+e,+e, 0,+1,0, 0,0},
+        // +X
+        {+e,-e,-e, +1,0,0, 0,1}, {+e,-e,+e, +1,0,0, 1,1}, {+e,+e,+e, +1,0,0, 1,0}, {+e,+e,-e, +1,0,0, 0,0},
+        // -X
+        {-e,-e,-e, -1,0,0, 1,1}, {-e,+e,-e, -1,0,0, 1,0}, {-e,+e,+e, -1,0,0, 0,0}, {-e,-e,+e, -1,0,0, 0,1},
+    };
+    const uint16_t indices[] = {
+        0,1,2, 0,2,3,
+        4,5,6, 4,6,7,
+        8,9,10, 8,10,11,
+        12,13,14, 12,14,15,
+        16,17,18, 16,18,19,
+        20,21,22, 20,22,23,
+    };
+    return g4f_gfx_mesh_create_p3n3uv2(
+        gfx,
+        vertices,
+        (int)(sizeof(vertices) / sizeof(vertices[0])),
+        indices,
+        (int)(sizeof(indices) / sizeof(indices[0]))
+    );
 }
 
 void g4f_gfx_mesh_destroy(g4f_gfx_mesh* mesh) {
