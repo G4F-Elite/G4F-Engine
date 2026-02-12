@@ -292,6 +292,14 @@ static void uiUtf8AppendCodepoint(std::string& s, uint32_t cp) {
     s.push_back((char)(0x80u | (cp & 0x3Fu)));
 }
 
+static void uiUtf8TrimToMaxBytes(std::string& s, int maxBytes) {
+    if (maxBytes < 0) return;
+    if ((int)s.size() <= maxBytes) return;
+    size_t end = (size_t)maxBytes;
+    while (end > 0 && ((uint8_t)s[end] & 0xC0u) == 0x80u) end--;
+    s.resize(end);
+}
+
 static g4f_ui::ScrollState* uiFindOrCreateScroll(g4f_ui* ui, uint64_t id) {
     for (auto& s : ui->scrollStates) {
         if (s.id == id) return &s;
@@ -545,6 +553,27 @@ int g4f_ui_input_text_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8
 
     int changed = 0;
     if (active && ui->window) {
+        int ctrl = g4f_key_down(ui->window, G4F_KEY_LEFT_CONTROL) || g4f_key_down(ui->window, G4F_KEY_RIGHT_CONTROL);
+        if (ctrl && g4f_key_pressed(ui->window, G4F_KEY_C)) {
+            g4f_clipboard_set_utf8(ui->window, value.c_str());
+        }
+        if (ctrl && g4f_key_pressed(ui->window, G4F_KEY_X)) {
+            g4f_clipboard_set_utf8(ui->window, value.c_str());
+            if (!value.empty()) { value.clear(); changed = 1; }
+        }
+        if (ctrl && g4f_key_pressed(ui->window, G4F_KEY_V)) {
+            char clip[2048];
+            int got = g4f_clipboard_get_utf8(ui->window, clip, (int)sizeof(clip));
+            if (got > 0) {
+                value.append(clip, (size_t)got);
+                uiUtf8TrimToMaxBytes(value, maxBytes);
+                changed = 1;
+            }
+        }
+
+        if (g4f_key_pressed(ui->window, G4F_KEY_ENTER)) {
+            ui->textActive = 0;
+        }
         if (g4f_key_pressed(ui->window, G4F_KEY_BACKSPACE) && !value.empty()) {
             uiUtf8PopBack(value);
             changed = 1;
