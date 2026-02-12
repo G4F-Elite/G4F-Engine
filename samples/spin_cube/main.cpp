@@ -1,50 +1,7 @@
 #include <cstdio>
-#include <vector>
-
 #include "g4f/g4f.h"
 #include "g4f/g4f_camera.h"
 #include "g4f/g4f_ui.h"
-
-static g4f_gfx_mesh* createUvCube(g4f_gfx* gfx) {
-    // 24 vertices (4 per face) so each face has its own normal/uv.
-    const g4f_gfx_vertex_p3n3uv2 v[] = {
-        // -Z
-        {-1,-1,-1, 0,0,-1, 0,1}, {+1,-1,-1, 0,0,-1, 1,1}, {+1,+1,-1, 0,0,-1, 1,0}, {-1,+1,-1, 0,0,-1, 0,0},
-        // +Z
-        {-1,-1,+1, 0,0,+1, 0,1}, {-1,+1,+1, 0,0,+1, 0,0}, {+1,+1,+1, 0,0,+1, 1,0}, {+1,-1,+1, 0,0,+1, 1,1},
-        // -Y
-        {-1,-1,-1, 0,-1,0, 0,1}, {-1,-1,+1, 0,-1,0, 0,0}, {+1,-1,+1, 0,-1,0, 1,0}, {+1,-1,-1, 0,-1,0, 1,1},
-        // +Y
-        {-1,+1,-1, 0,+1,0, 0,1}, {+1,+1,-1, 0,+1,0, 1,1}, {+1,+1,+1, 0,+1,0, 1,0}, {-1,+1,+1, 0,+1,0, 0,0},
-        // +X
-        {+1,-1,-1, +1,0,0, 0,1}, {+1,-1,+1, +1,0,0, 1,1}, {+1,+1,+1, +1,0,0, 1,0}, {+1,+1,-1, +1,0,0, 0,0},
-        // -X
-        {-1,-1,-1, -1,0,0, 1,1}, {-1,+1,-1, -1,0,0, 1,0}, {-1,+1,+1, -1,0,0, 0,0}, {-1,-1,+1, -1,0,0, 0,1},
-    };
-    const uint16_t idx[] = {
-        0,1,2, 0,2,3,
-        4,5,6, 4,6,7,
-        8,9,10, 8,10,11,
-        12,13,14, 12,14,15,
-        16,17,18, 16,18,19,
-        20,21,22, 20,22,23,
-    };
-    return g4f_gfx_mesh_create_p3n3uv2(gfx, v, (int)(sizeof(v) / sizeof(v[0])), idx, (int)(sizeof(idx) / sizeof(idx[0])));
-}
-
-static g4f_gfx_texture* createCheckerTexture(g4f_gfx* gfx, int w, int h) {
-    std::vector<uint32_t> pixels((size_t)w * (size_t)h);
-    for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
-            int cx = (x / 8) & 1;
-            int cy = (y / 8) & 1;
-            int on = (cx ^ cy) & 1;
-            uint32_t c = on ? g4f_rgba_u32(240, 240, 255, 255) : g4f_rgba_u32(40, 40, 55, 255);
-            pixels[(size_t)y * (size_t)w + (size_t)x] = c;
-        }
-    }
-    return g4f_gfx_texture_create_rgba8(gfx, w, h, pixels.data(), w * 4);
-}
 
 int main() {
     g4f_window_desc windowDesc{};
@@ -60,8 +17,15 @@ int main() {
     }
 
     g4f_gfx* gfx = g4f_ctx3d_gfx(ctx);
-    g4f_gfx_mesh* cube = createUvCube(gfx);
-    g4f_gfx_texture* checker = createCheckerTexture(gfx, 64, 64);
+    g4f_gfx_mesh* cube = g4f_gfx_mesh_create_cube_p3n3uv2(gfx, 1.0f);
+    g4f_gfx_texture* checker = g4f_gfx_texture_create_checker_rgba8(
+        gfx,
+        64,
+        64,
+        8,
+        g4f_rgba_u32(240, 240, 255, 255),
+        g4f_rgba_u32(40, 40, 55, 255)
+    );
     g4f_gfx_material_unlit_desc mdesc{};
     mdesc.tintRgba = g4f_rgba_u32(255, 255, 255, 255);
     mdesc.texture = checker;
@@ -105,9 +69,7 @@ int main() {
         g4f_frame3d_begin(ctx, g4f_rgba_u32(14, 14, 18, 255));
 
         float t = (float)g4f_ctx3d_time(ctx);
-        int ww = 0, wh = 0;
-        g4f_window_get_size(window, &ww, &wh);
-        float aspect = (wh > 0) ? ((float)ww / (float)wh) : 1.0f;
+        float aspect = g4f_gfx_aspect(gfx);
         g4f_mat4 proj = g4f_camera_fps_proj(&cam, aspect);
         g4f_mat4 view = g4f_camera_fps_view(&cam);
         g4f_mat4 rot = g4f_mat4_mul(g4f_mat4_rotation_y(t * 0.8f), g4f_mat4_rotation_x(t * 0.5f));
