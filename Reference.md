@@ -1,4 +1,4 @@
-# G4F-Engine (Win64, MinGW-w64) — Reference
+# G4F-Engine (Win64, MinGW-w64) - Reference
 
 ## Goal
 Lightweight engine for writing games in C/C++ on **Windows x64** with a **simple API**, strong **2D rendering** for menus/HUD, and **no GLFW dependency**.
@@ -9,7 +9,7 @@ Non-goals (intentionally **not** supported):
 - Asset pipelines that require external files (models/textures)
 
 Assets and materials policy:
-- 3D focus is planned/expected, but **not from files**: no loading `.fbx/.obj`, no “drop texture files into a folder”.
+- 3D focus is planned/expected, but **not from files**: no loading `.fbx/.obj`, no "drop texture files into a folder".
 - Any meshes/materials/textures are expected to be **generated in code** (procedural, hardcoded, embedded bytes, etc.).
 - 2D supports **bitmaps for UI** (icons/panels/menus) as a practical requirement.
 
@@ -20,11 +20,11 @@ Assets and materials policy:
 - Image decoding: **WIC** (PNG/JPG/etc.)
 
 ## Repository layout
-- `engine/include/g4f/g4f.h` — C API (stable surface)
-- `engine/src/` — Win32 + D2D/DWrite/WIC implementation
-- `samples/` — small runnable apps using the engine
-- `tests/` — engine tests
-- `Backrooms-master/` — upstream game used as smoke suite (primarily unit tests)
+- `engine/include/g4f/g4f.h` - C API (stable surface)
+- `engine/src/` - Win32 + D2D/DWrite/WIC implementation
+- `samples/` - small runnable apps using the engine
+- `tests/` - engine tests
+- `Backrooms-master/` - upstream game used as smoke suite (primarily unit tests)
 
 ## Build (MinGW-w64)
 Use `build.bat` at repo root:
@@ -35,8 +35,8 @@ Use `build.bat` at repo root:
 The build expects `g++` from **mingw-w64 x86_64** to be available in `PATH`.
 
 Outputs:
-- `out/bin/*.exe` — samples + tests
-- `out/lib/libg4f.a` — engine static library
+- `out/bin/*.exe` - samples + tests
+- `out/lib/libg4f.a` - engine static library
 
 ## Quickstart (simplest usage)
 Minimal app using the high-level context:
@@ -65,13 +65,14 @@ Two levels:
 ## UI (menus/panels)
 Immediate-mode UI helper (no editor, all in code):
 - Header: `engine/include/g4f/g4f_ui.h`
-- Typical flow per-frame: `g4f_ui_begin` → `g4f_ui_layout_begin` → widgets → `g4f_ui_end`
+- Typical flow per-frame: `g4f_ui_begin` -> `g4f_ui_layout_begin` -> widgets -> `g4f_ui_end`
 - Panels: `g4f_ui_panel_begin` / `g4f_ui_panel_end` (includes clipping)
 - Scroll panels: `g4f_ui_panel_begin_scroll` (mouse wheel scroll)
-- Keyboard nav (built-in): `UP/DOWN` (or `W/S`) focus, `ENTER/SPACE` activate, `LEFT/RIGHT` (or `A/D`) adjust slider (hold `SHIFT` for fine step)
+- Keyboard nav (built-in): `UP/DOWN` (or `W/S`) focus, `TAB`/`Shift+TAB` cycle focus, `ENTER/SPACE` activate, `LEFT/RIGHT` (or `A/D`) adjust slider (hold `SHIFT` for fine step)
 - Persistent UI state (optional): `g4f_ui_store_*` and keyed widgets `g4f_ui_checkbox_k` / `g4f_ui_slider_float_k`
 - Text input: `g4f_ui_input_text_k` (uses per-frame OS text input)
-- Clipboard shortcuts in text input: `Ctrl+C` copy, `Ctrl+X` cut, `Ctrl+V` paste, `Enter` to finish editing
+- Text input mouse: click to set caret, drag to select, auto horizontal scroll for long lines
+- Clipboard shortcuts in text input: `Ctrl+C` copy, `Ctrl+X` cut, `Ctrl+V` paste, `Enter`/`Esc` to finish editing
 - Editing: `Ctrl+A` select all, `Shift+Left/Right` select, `Home/End`, `Ctrl+Left/Right` jump by word
 
 ## Input notes
@@ -120,10 +121,10 @@ The engine exposes key codes in a GLFW-like integer space for ergonomic porting 
 - Minimal allocations per-frame; caller is encouraged to reuse buffers
 
 ## Current status
-See `Agents.md` for the development plan, milestones, and “what to implement next”.
+See `Agents.md` for the development plan, milestones, and "what to implement next".
 
 ## Backrooms validation (no GLFW dependency)
 `Backrooms-master/` is treated as a vendored reference project.
 `build.bat` compiles and runs `Backrooms-master/tests/*.cpp` using header-only shims from `compat/include`:
-- `compat/include/GLFW/glfw3.h` — keycode + API declarations (no library)
-- `compat/include/glad/glad.h` — OpenGL type/prototype declarations (no loader)
+- `compat/include/GLFW/glfw3.h` - keycode + API declarations (no library)
+- `compat/include/glad/glad.h` - OpenGL type/prototype declarations (no loader)
