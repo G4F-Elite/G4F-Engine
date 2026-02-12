@@ -187,6 +187,13 @@ g4f_mat4 g4f_mat4_look_at(g4f_vec3 eye, g4f_vec3 at, g4f_vec3 up);
 
 // Lifecycle / platform.
 const char* g4f_version_string(void);
+
+// Diagnostics (thread-local).
+// - On failure, most API calls set a short UTF-8 message describing the reason.
+// - The returned pointer is valid until the next error on the same thread.
+const char* g4f_last_error(void);
+void g4f_clear_error(void);
+
 g4f_app* g4f_app_create(const g4f_app_desc* desc);
 void g4f_app_destroy(g4f_app* app);
 

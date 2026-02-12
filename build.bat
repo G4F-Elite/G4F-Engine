@@ -51,6 +51,7 @@ echo === Build: engine (static lib) ===
 set "ENGINE_OBJ=%OBJ%\engine"
 
 %CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_utf8_win32.cpp -o "%ENGINE_OBJ%\g4f_utf8_win32.o" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_error.cpp -o "%ENGINE_OBJ%\g4f_error.o" || exit /b 1
 %CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_math.cpp -o "%ENGINE_OBJ%\g4f_math.o" || exit /b 1
 %CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_camera.cpp -o "%ENGINE_OBJ%\g4f_camera.o" || exit /b 1
 %CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_keycodes_win32.cpp -o "%ENGINE_OBJ%\g4f_keycodes_win32.o" || exit /b 1
@@ -62,7 +63,7 @@ set "ENGINE_OBJ=%OBJ%\engine"
 	%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_ctx3d_ui.cpp -o "%ENGINE_OBJ%\g4f_ctx3d_ui.o" || exit /b 1
 	%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_ui.cpp -o "%ENGINE_OBJ%\g4f_ui.o" || exit /b 1
 
-	%AR% rcs "%LIB%\libg4f.a" "%ENGINE_OBJ%\g4f_utf8_win32.o" "%ENGINE_OBJ%\g4f_math.o" "%ENGINE_OBJ%\g4f_camera.o" "%ENGINE_OBJ%\g4f_keycodes_win32.o" "%ENGINE_OBJ%\g4f_win32_window.o" "%ENGINE_OBJ%\g4f_d2d_renderer.o" "%ENGINE_OBJ%\g4f_ctx.o" "%ENGINE_OBJ%\g4f_d3d11_gfx.o" "%ENGINE_OBJ%\g4f_ctx3d.o" "%ENGINE_OBJ%\g4f_ctx3d_ui.o" "%ENGINE_OBJ%\g4f_ui.o" || exit /b 1
+	%AR% rcs "%LIB%\libg4f.a" "%ENGINE_OBJ%\g4f_utf8_win32.o" "%ENGINE_OBJ%\g4f_error.o" "%ENGINE_OBJ%\g4f_math.o" "%ENGINE_OBJ%\g4f_camera.o" "%ENGINE_OBJ%\g4f_keycodes_win32.o" "%ENGINE_OBJ%\g4f_win32_window.o" "%ENGINE_OBJ%\g4f_d2d_renderer.o" "%ENGINE_OBJ%\g4f_ctx.o" "%ENGINE_OBJ%\g4f_d3d11_gfx.o" "%ENGINE_OBJ%\g4f_ctx3d.o" "%ENGINE_OBJ%\g4f_ctx3d_ui.o" "%ENGINE_OBJ%\g4f_ui.o" || exit /b 1
 
 echo === Build: samples ===
 %CXX% %CXXFLAGS% %INC_ENGINE% samples\hello2d\main.cpp -L"%LIB%" -lg4f %LD_ENGINE% -o "%BIN%\hello2d.exe" || exit /b 1
