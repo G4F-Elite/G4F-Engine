@@ -49,17 +49,9 @@ int main() {
         g4f_window_get_size(window, &w, &h);
 
         g4f_ui_begin(ui, renderer, window);
-        g4f_ui_layout layout{};
-        layout.bounds = g4f_rect_f{64, 48, 520, 420};
-        layout.padding = 18.0f;
-        layout.spacing = 12.0f;
-        layout.itemW = 420.0f;
-        layout.defaultItemH = 44.0f;
-        g4f_ui_layout_begin(ui, layout);
-
-        g4f_ui_label(ui, "BACKROOMS: VOID SHIFT", 34.0f);
+        g4f_ui_panel_begin(ui, "BACKROOMS: VOID SHIFT", g4f_rect_f{64, 48, 520, 420});
         g4f_ui_label(ui, "menu smoke test (UI layer)", 16.0f);
-        g4f_ui_layout_spacer(ui, 10.0f);
+        g4f_ui_layout_spacer(ui, 6.0f);
 
         for (int i = 0; i < (int)(sizeof(kItems) / sizeof(kItems[0])); i++) {
             g4f_ui_push_id(ui, kItems[i].label);
@@ -75,6 +67,7 @@ int main() {
         float vol = 0.65f;
         g4f_ui_slider_float(ui, "dummy slider", &vol, 0.0f, 1.0f);
 
+        g4f_ui_panel_end(ui);
         g4f_ui_end(ui);
 
         char help[256];
