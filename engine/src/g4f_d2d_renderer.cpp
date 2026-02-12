@@ -3,6 +3,7 @@
 
 #include <unordered_map>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -316,10 +317,59 @@ g4f_bitmap* g4f_bitmap_load(g4f_renderer* renderer, const char* path_utf8) {
     return out;
 }
 
+g4f_bitmap* g4f_bitmap_create_rgba8(g4f_renderer* renderer, int width, int height, const void* rgbaPixels, int rowPitchBytes) {
+    if (!renderer || !rgbaPixels) return nullptr;
+    if (width <= 0 || height <= 0) return nullptr;
+
+    ID2D1RenderTarget* target = g4f_active_target(renderer);
+    if (!target) return nullptr;
+
+    int srcPitch = rowPitchBytes;
+    if (srcPitch <= 0) srcPitch = width * 4;
+
+    std::vector<uint8_t> premulBgra;
+    premulBgra.resize((size_t)width * (size_t)height * 4);
+
+    const uint8_t* src = (const uint8_t*)rgbaPixels;
+    for (int y = 0; y < height; y++) {
+        const uint8_t* row = src + (size_t)y * (size_t)srcPitch;
+        uint8_t* dst = premulBgra.data() + (size_t)y * (size_t)width * 4;
+        for (int x = 0; x < width; x++) {
+            uint8_t r = row[x * 4 + 0];
+            uint8_t g = row[x * 4 + 1];
+            uint8_t b = row[x * 4 + 2];
+            uint8_t a = row[x * 4 + 3];
+
+            uint32_t ap = (uint32_t)a;
+            dst[x * 4 + 0] = (uint8_t)((uint32_t)b * ap / 255u);
+            dst[x * 4 + 1] = (uint8_t)((uint32_t)g * ap / 255u);
+            dst[x * 4 + 2] = (uint8_t)((uint32_t)r * ap / 255u);
+            dst[x * 4 + 3] = a;
+        }
+    }
+
+    D2D1_BITMAP_PROPERTIES props = D2D1::BitmapProperties(D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED));
+
+    ID2D1Bitmap* bitmap = nullptr;
+    HRESULT hr = target->CreateBitmap(D2D1::SizeU((UINT32)width, (UINT32)height), premulBgra.data(), (UINT32)(width * 4), &props, &bitmap);
+    if (FAILED(hr) || !bitmap) return nullptr;
+
+    auto* out = new g4f_bitmap();
+    out->bitmap = bitmap;
+    out->width = width;
+    out->height = height;
+    return out;
+}
+
 void g4f_bitmap_destroy(g4f_bitmap* bitmap) {
     if (!bitmap) return;
     g4f_safe_release((IUnknown**)&bitmap->bitmap);
     delete bitmap;
+}
+
+void g4f_bitmap_get_size(const g4f_bitmap* bitmap, int* width, int* height) {
+    if (width) *width = bitmap ? bitmap->width : 0;
+    if (height) *height = bitmap ? bitmap->height : 0;
 }
 
 void g4f_draw_bitmap(g4f_renderer* renderer, const g4f_bitmap* bitmap, g4f_rect_f dst, float opacity) {

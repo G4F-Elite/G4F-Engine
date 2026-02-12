@@ -319,7 +319,9 @@ void g4f_clip_pop(g4f_renderer* renderer);
 
 // Bitmaps.
 g4f_bitmap* g4f_bitmap_load(g4f_renderer* renderer, const char* path_utf8);
+g4f_bitmap* g4f_bitmap_create_rgba8(g4f_renderer* renderer, int width, int height, const void* rgbaPixels, int rowPitchBytes);
 void g4f_bitmap_destroy(g4f_bitmap* bitmap);
+void g4f_bitmap_get_size(const g4f_bitmap* bitmap, int* width, int* height);
 void g4f_draw_bitmap(g4f_renderer* renderer, const g4f_bitmap* bitmap, g4f_rect_f dst, float opacity);
 
 // Create a UI renderer that draws into the current D3D11 swapchain backbuffer.
