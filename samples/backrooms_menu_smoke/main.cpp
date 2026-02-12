@@ -31,7 +31,6 @@ int main() {
     g4f_ui* ui = g4f_ui_create();
     if (!ui) { g4f_ctx_destroy(ctx); return 1; }
 
-    int selected = 0;
     bool running = true;
     while (running && g4f_ctx_poll(ctx)) {
         g4f_window* window = g4f_ctx_window(ctx);
@@ -52,7 +51,6 @@ int main() {
             int clicked = g4f_ui_button(ui, kItems[i].label);
             g4f_ui_pop_id(ui);
             if (clicked) {
-                selected = i;
                 if (std::strcmp(kItems[i].label, "QUIT") == 0) running = false;
             }
         }
