@@ -26,6 +26,10 @@ struct g4f_gfx {
     ID3D11BlendState* bsOpaque = nullptr;
     ID3D11BlendState* bsAlpha = nullptr;
 
+    float lightDir[4] = {0.0f, -1.0f, 0.0f, 0.0f};
+    float lightColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    float ambientColor[4] = {0.15f, 0.15f, 0.18f, 1.0f};
+
     ID3D11VertexShader* vs = nullptr;
     ID3D11PixelShader* ps = nullptr;
     ID3D11InputLayout* inputLayout = nullptr;
@@ -37,6 +41,7 @@ struct g4f_gfx {
     // Unlit material pipeline (P3N3UV2, optional texture).
     ID3D11VertexShader* vsUnlit = nullptr;
     ID3D11PixelShader* psUnlit = nullptr;
+    ID3D11PixelShader* psLit = nullptr;
     ID3D11InputLayout* ilUnlit = nullptr;
     ID3D11Buffer* cbUnlit = nullptr;
     ID3D11SamplerState* sampLinearClamp = nullptr;

@@ -35,6 +35,15 @@ static void rgbaU32ToFloat4(uint32_t rgba, float out[4]) {
     out[3] = clamp01(out[3]);
 }
 
+static void vec3Normalize(float v[3]) {
+    float len2 = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+    if (len2 <= 0.0f) { v[0] = 0.0f; v[1] = -1.0f; v[2] = 0.0f; return; }
+    float invLen = 1.0f / std::sqrt(len2);
+    v[0] *= invLen;
+    v[1] *= invLen;
+    v[2] *= invLen;
+}
+
 static void safeRelease(IUnknown** ptr) {
     g4f_safe_release(ptr);
 }
@@ -66,11 +75,15 @@ struct Vertex {
     float cr, cg, cb, ca;
 };
 
-struct CbUnlit {
+struct CbMaterial {
     g4f_mat4 mvp;
     float tint[4];
     float hasTex;
     float pad[3];
+    g4f_mat4 model;
+    float lightDir[4];
+    float lightColor[4];
+    float ambientColor[4];
 };
 
 } // namespace
@@ -277,21 +290,35 @@ cbuffer CB0 : register(b0) {
   float4 uTint;
   float uHasTex;
   float3 _pad;
+  row_major float4x4 uModel;
+  float4 uLightDir;
+  float4 uLightColor;
+  float4 uAmbientColor;
 };
 Texture2D uTex0 : register(t0);
 SamplerState uSamp0 : register(s0);
 struct VSIn { float3 pos : POSITION; float3 n : NORMAL; float2 uv : TEXCOORD0; };
-struct PSIn { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
+struct PSIn { float4 pos : SV_Position; float2 uv : TEXCOORD0; float3 n : NORMAL; };
 PSIn VSMain(VSIn i){
   PSIn o;
   o.pos = mul(float4(i.pos,1.0), uMvp);
   o.uv = i.uv;
+  o.n = mul(float4(i.n, 0.0), uModel).xyz;
   return o;
 }
-float4 PSMain(PSIn i) : SV_Target {
+float4 PSUnlit(PSIn i) : SV_Target {
   float4 c = uTint;
   if (uHasTex > 0.5) c *= uTex0.Sample(uSamp0, i.uv);
   return c;
+}
+float4 PSLit(PSIn i) : SV_Target {
+  float4 base = uTint;
+  if (uHasTex > 0.5) base *= uTex0.Sample(uSamp0, i.uv);
+  float3 n = normalize(i.n);
+  float3 l = normalize(-uLightDir.xyz);
+  float ndl = saturate(dot(n, l));
+  float3 lit = base.rgb * (uAmbientColor.rgb + ndl * uLightColor.rgb);
+  return float4(lit, base.a);
 }
 )";
 
@@ -299,7 +326,7 @@ float4 PSMain(PSIn i) : SV_Target {
     ID3DBlob* psBlob = nullptr;
     HRESULT hr = compileHlsl(kShader, "VSMain", "vs_5_0", &vsBlob);
     if (FAILED(hr) || !vsBlob) return false;
-    hr = compileHlsl(kShader, "PSMain", "ps_5_0", &psBlob);
+    hr = compileHlsl(kShader, "PSUnlit", "ps_5_0", &psBlob);
     if (FAILED(hr) || !psBlob) { vsBlob->Release(); return false; }
 
     hr = gfx->device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &gfx->vsUnlit);
@@ -307,6 +334,13 @@ float4 PSMain(PSIn i) : SV_Target {
     hr = gfx->device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &gfx->psUnlit);
     psBlob->Release();
     if (FAILED(hr)) { vsBlob->Release(); return false; }
+
+    ID3DBlob* psLitBlob = nullptr;
+    hr = compileHlsl(kShader, "PSLit", "ps_5_0", &psLitBlob);
+    if (FAILED(hr) || !psLitBlob) { vsBlob->Release(); return false; }
+    hr = gfx->device->CreatePixelShader(psLitBlob->GetBufferPointer(), psLitBlob->GetBufferSize(), nullptr, &gfx->psLit);
+    psLitBlob->Release();
+    if (FAILED(hr) || !gfx->psLit) { vsBlob->Release(); return false; }
 
     D3D11_INPUT_ELEMENT_DESC il[] = {
         {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
@@ -318,7 +352,7 @@ float4 PSMain(PSIn i) : SV_Target {
     if (FAILED(hr) || !gfx->ilUnlit) return false;
 
     D3D11_BUFFER_DESC cbDesc{};
-    cbDesc.ByteWidth = (UINT)sizeof(CbUnlit);
+    cbDesc.ByteWidth = (UINT)sizeof(CbMaterial);
     cbDesc.Usage = D3D11_USAGE_DEFAULT;
     cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     hr = gfx->device->CreateBuffer(&cbDesc, nullptr, &gfx->cbUnlit);
@@ -405,6 +439,7 @@ void g4f_gfx_destroy(g4f_gfx* gfx) {
     safeRelease((IUnknown**)&gfx->sampLinearClamp);
     safeRelease((IUnknown**)&gfx->cbUnlit);
     safeRelease((IUnknown**)&gfx->ilUnlit);
+    safeRelease((IUnknown**)&gfx->psLit);
     safeRelease((IUnknown**)&gfx->psUnlit);
     safeRelease((IUnknown**)&gfx->vsUnlit);
     safeRelease((IUnknown**)&gfx->cbMvp);
@@ -468,6 +503,25 @@ float g4f_gfx_aspect(const g4f_gfx* gfx) {
     return (float)gfx->cachedW / (float)gfx->cachedH;
 }
 
+void g4f_gfx_set_light_dir(g4f_gfx* gfx, float x, float y, float z) {
+    if (!gfx) return;
+    gfx->lightDir[0] = x;
+    gfx->lightDir[1] = y;
+    gfx->lightDir[2] = z;
+    float v[3] = {gfx->lightDir[0], gfx->lightDir[1], gfx->lightDir[2]};
+    vec3Normalize(v);
+    gfx->lightDir[0] = v[0];
+    gfx->lightDir[1] = v[1];
+    gfx->lightDir[2] = v[2];
+    gfx->lightDir[3] = 0.0f;
+}
+
+void g4f_gfx_set_light_colors(g4f_gfx* gfx, uint32_t lightRgba, uint32_t ambientRgba) {
+    if (!gfx) return;
+    rgbaU32ToFloat4(lightRgba, gfx->lightColor);
+    rgbaU32ToFloat4(ambientRgba, gfx->ambientColor);
+}
+
 void g4f_gfx_draw_debug_cube(g4f_gfx* gfx, float timeSeconds) {
     if (!gfx || !gfx->ctx) return;
 
@@ -503,6 +557,7 @@ struct g4f_gfx_texture {
 struct g4f_gfx_material {
     float tint[4]{1.0f, 1.0f, 1.0f, 1.0f};
     ID3D11ShaderResourceView* srv = nullptr; // optional
+    int lit = 0;
     int alphaBlend = 0;
     int depthTest = 1;
     int depthWrite = 1;
@@ -607,6 +662,12 @@ g4f_gfx_material* g4f_gfx_material_create_unlit(g4f_gfx* gfx, const g4f_gfx_mate
     if (material->cullMode > 2) material->cullMode = 2;
 
     return material;
+}
+
+g4f_gfx_material* g4f_gfx_material_create_lit(g4f_gfx* gfx, const g4f_gfx_material_unlit_desc* desc) {
+    g4f_gfx_material* m = g4f_gfx_material_create_unlit(gfx, desc);
+    if (m) m->lit = 1;
+    return m;
 }
 
 void g4f_gfx_material_destroy(g4f_gfx_material* material) {
@@ -730,7 +791,7 @@ void g4f_gfx_draw_mesh(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_gfx_mat
 
     gfx->ctx->IASetInputLayout(gfx->ilUnlit);
     gfx->ctx->VSSetShader(gfx->vsUnlit, nullptr, 0);
-    gfx->ctx->PSSetShader(gfx->psUnlit, nullptr, 0);
+    gfx->ctx->PSSetShader(material->lit ? gfx->psLit : gfx->psUnlit, nullptr, 0);
 
     UINT stride = (UINT)sizeof(g4f_gfx_vertex_p3n3uv2);
     UINT offset = 0;
@@ -748,13 +809,26 @@ void g4f_gfx_draw_mesh(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_gfx_mat
     if (material->cullMode == 2) rs = gfx->rsCullFront;
     gfx->ctx->RSSetState(rs);
 
-    CbUnlit cb{};
+    CbMaterial cb{};
     cb.mvp = *mvp;
     cb.tint[0] = material->tint[0];
     cb.tint[1] = material->tint[1];
     cb.tint[2] = material->tint[2];
     cb.tint[3] = material->tint[3];
     cb.hasTex = material->srv ? 1.0f : 0.0f;
+    cb.model = g4f_mat4_identity();
+    cb.lightDir[0] = gfx->lightDir[0];
+    cb.lightDir[1] = gfx->lightDir[1];
+    cb.lightDir[2] = gfx->lightDir[2];
+    cb.lightDir[3] = 0.0f;
+    cb.lightColor[0] = gfx->lightColor[0];
+    cb.lightColor[1] = gfx->lightColor[1];
+    cb.lightColor[2] = gfx->lightColor[2];
+    cb.lightColor[3] = gfx->lightColor[3];
+    cb.ambientColor[0] = gfx->ambientColor[0];
+    cb.ambientColor[1] = gfx->ambientColor[1];
+    cb.ambientColor[2] = gfx->ambientColor[2];
+    cb.ambientColor[3] = gfx->ambientColor[3];
     gfx->ctx->UpdateSubresource(gfx->cbUnlit, 0, nullptr, &cb, 0, 0);
     gfx->ctx->VSSetConstantBuffers(0, 1, &gfx->cbUnlit);
     gfx->ctx->PSSetConstantBuffers(0, 1, &gfx->cbUnlit);

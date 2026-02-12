@@ -213,6 +213,10 @@ void g4f_gfx_end(g4f_gfx* gfx); // presents
 void g4f_gfx_get_size(const g4f_gfx* gfx, int* width, int* height);
 float g4f_gfx_aspect(const g4f_gfx* gfx);
 
+// Global lighting state (used by lit materials).
+void g4f_gfx_set_light_dir(g4f_gfx* gfx, float x, float y, float z); // direction light travels
+void g4f_gfx_set_light_colors(g4f_gfx* gfx, uint32_t lightRgba, uint32_t ambientRgba);
+
 // High-level 3D context (simplest 3D integration).
 g4f_ctx3d* g4f_ctx3d_create(const g4f_window_desc* windowDesc);
 void g4f_ctx3d_destroy(g4f_ctx3d* ctx);
@@ -245,6 +249,7 @@ typedef struct g4f_gfx_material_unlit_desc {
 } g4f_gfx_material_unlit_desc;
 
 g4f_gfx_material* g4f_gfx_material_create_unlit(g4f_gfx* gfx, const g4f_gfx_material_unlit_desc* desc);
+g4f_gfx_material* g4f_gfx_material_create_lit(g4f_gfx* gfx, const g4f_gfx_material_unlit_desc* desc);
 void g4f_gfx_material_destroy(g4f_gfx_material* material);
 void g4f_gfx_material_set_tint_rgba(g4f_gfx_material* material, uint32_t rgba);
 void g4f_gfx_material_set_texture(g4f_gfx_material* material, g4f_gfx_texture* texture);
