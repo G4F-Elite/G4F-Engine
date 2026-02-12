@@ -615,6 +615,17 @@ void g4f_gfx_material_set_texture(g4f_gfx_material* material, g4f_gfx_texture* t
     }
 }
 
+void g4f_gfx_material_set_alpha_blend(g4f_gfx_material* material, int enabled) {
+    if (!material) return;
+    material->alphaBlend = enabled ? 1 : 0;
+}
+
+void g4f_gfx_material_set_depth(g4f_gfx_material* material, int depthTest, int depthWrite) {
+    if (!material) return;
+    material->depthTest = depthTest ? 1 : 0;
+    material->depthWrite = depthWrite ? 1 : 0;
+}
+
 g4f_gfx_mesh* g4f_gfx_mesh_create_p3n3uv2(g4f_gfx* gfx, const g4f_gfx_vertex_p3n3uv2* vertices, int vertexCount, const uint16_t* indices, int indexCount) {
     if (!gfx || !gfx->device) return nullptr;
     if (!vertices || vertexCount <= 0) return nullptr;

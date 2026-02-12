@@ -247,6 +247,8 @@ g4f_gfx_material* g4f_gfx_material_create_unlit(g4f_gfx* gfx, const g4f_gfx_mate
 void g4f_gfx_material_destroy(g4f_gfx_material* material);
 void g4f_gfx_material_set_tint_rgba(g4f_gfx_material* material, uint32_t rgba);
 void g4f_gfx_material_set_texture(g4f_gfx_material* material, g4f_gfx_texture* texture);
+void g4f_gfx_material_set_alpha_blend(g4f_gfx_material* material, int enabled);
+void g4f_gfx_material_set_depth(g4f_gfx_material* material, int depthTest, int depthWrite);
 
 typedef struct g4f_gfx_vertex_p3n3uv2 {
     float px, py, pz;

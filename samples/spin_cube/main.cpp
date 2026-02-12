@@ -29,6 +29,9 @@ int main() {
     g4f_gfx_material_unlit_desc mdesc{};
     mdesc.tintRgba = g4f_rgba_u32(255, 255, 255, 255);
     mdesc.texture = checker;
+    mdesc.alphaBlend = 0;
+    mdesc.depthTest = 1;
+    mdesc.depthWrite = 1;
     g4f_gfx_material* mtl = g4f_gfx_material_create_unlit(gfx, &mdesc);
     if (!cube || !checker || !mtl) {
         std::fprintf(stderr, "Failed to create 3D resources\n");
@@ -88,6 +91,10 @@ int main() {
         g4f_ui_slider_float_k(uiState, "slider (stored)", "slider", 0.42f, 0.0f, 1.0f, &f);
         uint32_t tint = g4f_rgba_u32((uint8_t)(80 + 175 * f), (uint8_t)(140 + 115 * f), 255, 255);
         g4f_gfx_material_set_tint_rgba(mtl, tint);
+        int alpha = 0;
+        g4f_ui_checkbox_k(uiState, "alpha blend (stored)", "alpha", 0, &alpha);
+        g4f_gfx_material_set_alpha_blend(mtl, alpha);
+        if (alpha) g4f_gfx_material_set_tint_rgba(mtl, (tint & 0xFFFFFF00u) | 150u);
         char textBuf[64];
         g4f_ui_input_text_k(uiState, "text input (stored)", "text", "hello...", 48, textBuf, (int)sizeof(textBuf));
         g4f_ui_layout_spacer(uiState, 10.0f);
