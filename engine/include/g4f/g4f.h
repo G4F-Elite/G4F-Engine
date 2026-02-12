@@ -234,7 +234,13 @@ void g4f_draw_round_rect(g4f_renderer* renderer, g4f_rect_f rect, float radius, 
 void g4f_draw_round_rect_outline(g4f_renderer* renderer, g4f_rect_f rect, float radius, float thickness, uint32_t rgba);
 void g4f_draw_line(g4f_renderer* renderer, float x1, float y1, float x2, float y2, float thickness, uint32_t rgba);
 void g4f_draw_text(g4f_renderer* renderer, const char* text_utf8, float x, float y, float size_px, uint32_t rgba);
+void g4f_draw_text_wrapped(g4f_renderer* renderer, const char* text_utf8, g4f_rect_f bounds, float size_px, uint32_t rgba);
 void g4f_measure_text(g4f_renderer* renderer, const char* text_utf8, float size_px, float* out_w, float* out_h);
+void g4f_measure_text_wrapped(g4f_renderer* renderer, const char* text_utf8, float size_px, float max_w, float max_h, float* out_w, float* out_h);
+
+// Clipping (useful for panels/scroll areas).
+void g4f_clip_push(g4f_renderer* renderer, g4f_rect_f rect);
+void g4f_clip_pop(g4f_renderer* renderer);
 
 // Bitmaps.
 g4f_bitmap* g4f_bitmap_load(g4f_renderer* renderer, const char* path_utf8);

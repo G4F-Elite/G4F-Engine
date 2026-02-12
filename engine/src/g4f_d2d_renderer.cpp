@@ -35,6 +35,7 @@ struct g4f_renderer {
     ID2D1SolidColorBrush* brush = nullptr;
 
     std::unordered_map<int, IDWriteTextFormat*> textFormatsBySizePx;
+    int clipDepth = 0;
 };
 
 struct g4f_bitmap {
@@ -42,6 +43,13 @@ struct g4f_bitmap {
     int width = 0;
     int height = 0;
 };
+
+static ID2D1RenderTarget* g4f_active_target(g4f_renderer* renderer) {
+    if (!renderer) return nullptr;
+    if (renderer->hwndTarget) return renderer->hwndTarget;
+    if (renderer->gfxContext) return renderer->gfxContext;
+    return nullptr;
+}
 
 static HRESULT g4f_renderer_create_hwnd_target(g4f_renderer* renderer) {
     RECT rc{};
@@ -201,11 +209,12 @@ void g4f_draw_line(g4f_renderer* renderer, float x1, float y1, float x2, float y
     else if (renderer->gfxContext) renderer->gfxContext->DrawLine(D2D1::Point2F(x1, y1), D2D1::Point2F(x2, y2), renderer->brush, thickness);
 }
 
-static IDWriteTextFormat* g4f_get_text_format(g4f_renderer* renderer, int sizePx) {
+static IDWriteTextFormat* g4f_get_text_format(g4f_renderer* renderer, int sizePx, bool wrap) {
     if (sizePx < 6) sizePx = 6;
     if (sizePx > 200) sizePx = 200;
 
-    auto it = renderer->textFormatsBySizePx.find(sizePx);
+    int key = sizePx * 2 + (wrap ? 1 : 0);
+    auto it = renderer->textFormatsBySizePx.find(key);
     if (it != renderer->textFormatsBySizePx.end()) return it->second;
 
     IDWriteTextFormat* format = nullptr;
@@ -220,9 +229,9 @@ static IDWriteTextFormat* g4f_get_text_format(g4f_renderer* renderer, int sizePx
         &format
     );
     if (FAILED(hr) || !format) return nullptr;
-    format->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
+    format->SetWordWrapping(wrap ? DWRITE_WORD_WRAPPING_WRAP : DWRITE_WORD_WRAPPING_NO_WRAP);
 
-    renderer->textFormatsBySizePx.emplace(sizePx, format);
+    renderer->textFormatsBySizePx.emplace(key, format);
     return format;
 }
 
@@ -232,7 +241,7 @@ void g4f_draw_text(g4f_renderer* renderer, const char* text_utf8, float x, float
     if (text.empty()) return;
 
     int sizePx = (int)(size_px + 0.5f);
-    IDWriteTextFormat* format = g4f_get_text_format(renderer, sizePx);
+    IDWriteTextFormat* format = g4f_get_text_format(renderer, sizePx, false);
     if (!format) return;
 
     renderer->brush->SetColor(g4f_color_from_rgba_u32(rgba));
@@ -242,6 +251,29 @@ void g4f_draw_text(g4f_renderer* renderer, const char* text_utf8, float x, float
     D2D1_RECT_F layout{ x, y, rtSize.width, rtSize.height };
     if (renderer->hwndTarget) renderer->hwndTarget->DrawText(text.c_str(), (UINT32)text.size(), format, layout, renderer->brush);
     else if (renderer->gfxContext) renderer->gfxContext->DrawText(text.c_str(), (UINT32)text.size(), format, layout, renderer->brush);
+}
+
+void g4f_draw_text_wrapped(g4f_renderer* renderer, const char* text_utf8, g4f_rect_f bounds, float size_px, uint32_t rgba) {
+    if (!renderer || !renderer->brush || !renderer->dwriteFactory || !text_utf8) return;
+    std::wstring text = g4f_utf8_to_wide(text_utf8);
+    if (text.empty()) return;
+
+    int sizePx = (int)(size_px + 0.5f);
+    IDWriteTextFormat* format = g4f_get_text_format(renderer, sizePx, true);
+    if (!format) return;
+
+    renderer->brush->SetColor(g4f_color_from_rgba_u32(rgba));
+
+    float w = (bounds.w > 0.0f) ? bounds.w : 1.0f;
+    float h = (bounds.h > 0.0f) ? bounds.h : 1.0f;
+
+    IDWriteTextLayout* layout = nullptr;
+    HRESULT hr = renderer->dwriteFactory->CreateTextLayout(text.c_str(), (UINT32)text.size(), format, w, h, &layout);
+    if (FAILED(hr) || !layout) return;
+
+    ID2D1RenderTarget* target = g4f_active_target(renderer);
+    if (target) target->DrawTextLayout(D2D1::Point2F(bounds.x, bounds.y), layout, renderer->brush);
+    layout->Release();
 }
 
 g4f_bitmap* g4f_bitmap_load(g4f_renderer* renderer, const char* path_utf8) {
@@ -330,7 +362,7 @@ void g4f_measure_text(g4f_renderer* renderer, const char* text_utf8, float size_
     std::wstring text = g4f_utf8_to_wide(text_utf8);
     if (text.empty()) return;
     int sizePx = (int)(size_px + 0.5f);
-    IDWriteTextFormat* format = g4f_get_text_format(renderer, sizePx);
+    IDWriteTextFormat* format = g4f_get_text_format(renderer, sizePx, false);
     if (!format) return;
 
     IDWriteTextLayout* layout = nullptr;
@@ -341,6 +373,47 @@ void g4f_measure_text(g4f_renderer* renderer, const char* text_utf8, float size_
     layout->Release();
     if (out_w) *out_w = m.widthIncludingTrailingWhitespace;
     if (out_h) *out_h = m.height;
+}
+
+void g4f_measure_text_wrapped(g4f_renderer* renderer, const char* text_utf8, float size_px, float max_w, float max_h, float* out_w, float* out_h) {
+    if (out_w) *out_w = 0.0f;
+    if (out_h) *out_h = 0.0f;
+    if (!renderer || !renderer->dwriteFactory || !text_utf8) return;
+    std::wstring text = g4f_utf8_to_wide(text_utf8);
+    if (text.empty()) return;
+    int sizePx = (int)(size_px + 0.5f);
+    IDWriteTextFormat* format = g4f_get_text_format(renderer, sizePx, true);
+    if (!format) return;
+
+    float w = (max_w > 0.0f) ? max_w : 1.0f;
+    float h = (max_h > 0.0f) ? max_h : 1.0f;
+
+    IDWriteTextLayout* layout = nullptr;
+    HRESULT hr = renderer->dwriteFactory->CreateTextLayout(text.c_str(), (UINT32)text.size(), format, w, h, &layout);
+    if (FAILED(hr) || !layout) return;
+    DWRITE_TEXT_METRICS m{};
+    layout->GetMetrics(&m);
+    layout->Release();
+    if (out_w) *out_w = m.widthIncludingTrailingWhitespace;
+    if (out_h) *out_h = m.height;
+}
+
+void g4f_clip_push(g4f_renderer* renderer, g4f_rect_f rect) {
+    if (!renderer) return;
+    ID2D1RenderTarget* target = g4f_active_target(renderer);
+    if (!target) return;
+    D2D1_RECT_F r{rect.x, rect.y, rect.x + rect.w, rect.y + rect.h};
+    target->PushAxisAlignedClip(r, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+    renderer->clipDepth += 1;
+}
+
+void g4f_clip_pop(g4f_renderer* renderer) {
+    if (!renderer) return;
+    ID2D1RenderTarget* target = g4f_active_target(renderer);
+    if (!target) return;
+    if (renderer->clipDepth <= 0) return;
+    target->PopAxisAlignedClip();
+    renderer->clipDepth -= 1;
 }
 
 g4f_renderer* g4f_renderer_create_for_gfx(g4f_gfx* gfx) {
