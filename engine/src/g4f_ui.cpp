@@ -49,6 +49,9 @@ struct g4f_ui {
     g4f_ui_theme theme{};
     g4f_ui_layout layout{};
     bool hasLayout = false;
+    bool panelOpen = false;
+    g4f_rect_f panelBounds{};
+    g4f_rect_f panelInner{};
 
     std::vector<uint64_t> idStack;
     uint64_t frameSeed = 0;
@@ -176,6 +179,45 @@ int g4f_ui_label(g4f_ui* ui, const char* text_utf8, float size_px) {
     g4f_rect_f r = g4f_ui_layout_next(ui, size_px + 10.0f);
     g4f_draw_text(ui->renderer, text_utf8, r.x, r.y, size_px, ui->theme.text);
     return 0;
+}
+
+void g4f_ui_panel_begin(g4f_ui* ui, const char* title_utf8, g4f_rect_f bounds) {
+    if (!ui || !ui->renderer) return;
+    ui->panelOpen = true;
+    ui->panelBounds = bounds;
+
+    const float radius = 14.0f;
+    g4f_draw_round_rect(ui->renderer, bounds, radius, ui->theme.panelBg);
+    g4f_draw_round_rect_outline(ui->renderer, bounds, radius, 2.0f, ui->theme.panelBorder);
+
+    float innerPad = 16.0f;
+    float titleH = (title_utf8 && title_utf8[0]) ? 34.0f : 0.0f;
+    ui->panelInner = g4f_rect_f{
+        bounds.x + innerPad,
+        bounds.y + innerPad + titleH,
+        bounds.w - innerPad * 2.0f,
+        bounds.h - innerPad * 2.0f - titleH,
+    };
+
+    if (title_utf8 && title_utf8[0]) {
+        g4f_draw_text(ui->renderer, title_utf8, bounds.x + innerPad, bounds.y + 10.0f, 18.0f, ui->theme.text);
+    }
+
+    g4f_clip_push(ui->renderer, ui->panelInner);
+    g4f_ui_layout layout{};
+    layout.bounds = ui->panelInner;
+    layout.padding = 0.0f;
+    layout.spacing = 10.0f;
+    layout.itemW = ui->panelInner.w;
+    layout.defaultItemH = 44.0f;
+    g4f_ui_layout_begin(ui, layout);
+}
+
+void g4f_ui_panel_end(g4f_ui* ui) {
+    if (!ui || !ui->renderer) return;
+    if (!ui->panelOpen) return;
+    g4f_clip_pop(ui->renderer);
+    ui->panelOpen = false;
 }
 
 int g4f_ui_button(g4f_ui* ui, const char* label_utf8) {

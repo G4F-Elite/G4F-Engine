@@ -49,6 +49,8 @@ void g4f_ui_layout_spacer(g4f_ui* ui, float height);
 // Widgets (immediate-mode).
 // Return 1 if activated/toggled/changed.
 int g4f_ui_label(g4f_ui* ui, const char* text_utf8, float size_px);
+void g4f_ui_panel_begin(g4f_ui* ui, const char* title_utf8, g4f_rect_f bounds);
+void g4f_ui_panel_end(g4f_ui* ui);
 int g4f_ui_button(g4f_ui* ui, const char* label_utf8);
 int g4f_ui_checkbox(g4f_ui* ui, const char* label_utf8, int* value);
 int g4f_ui_slider_float(g4f_ui* ui, const char* label_utf8, float* value, float minValue, float maxValue);
@@ -56,4 +58,3 @@ int g4f_ui_slider_float(g4f_ui* ui, const char* label_utf8, float* value, float 
 #ifdef __cplusplus
 } // extern "C"
 #endif
-
