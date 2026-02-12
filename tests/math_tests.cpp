@@ -35,6 +35,24 @@ static void testTranslationLayout() {
     assert(feq(t.m[15], 1.0f));
 }
 
+static void testScaleLayout() {
+    g4f_mat4 s = g4f_mat4_scale(2.0f, 3.0f, 4.0f);
+    assert(feq(s.m[0], 2.0f));
+    assert(feq(s.m[5], 3.0f));
+    assert(feq(s.m[10], 4.0f));
+    assert(feq(s.m[15], 1.0f));
+}
+
+static void testRotationZShape() {
+    g4f_mat4 r = g4f_mat4_rotation_z(1.2345f);
+    assert(std::isfinite(r.m[0]));
+    assert(std::isfinite(r.m[1]));
+    assert(std::isfinite(r.m[4]));
+    assert(std::isfinite(r.m[5]));
+    assert(feq(r.m[10], 1.0f));
+    assert(feq(r.m[15], 1.0f));
+}
+
 static void testPerspectiveShape() {
     g4f_mat4 p = g4f_mat4_perspective(70.0f * 3.14159265f / 180.0f, 16.0f / 9.0f, 0.1f, 100.0f);
     assert(std::isfinite(p.m[0]));
@@ -69,9 +87,10 @@ int main() {
     testIdentity();
     testMulIdentity();
     testTranslationLayout();
+    testScaleLayout();
+    testRotationZShape();
     testPerspectiveShape();
     testLookAtOrthonormal();
     std::cout << "math_tests: OK\n";
     return 0;
 }
-

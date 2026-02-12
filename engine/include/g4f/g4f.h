@@ -180,6 +180,8 @@ g4f_mat4 g4f_mat4_mul(g4f_mat4 a, g4f_mat4 b);
 g4f_mat4 g4f_mat4_translation(float x, float y, float z);
 g4f_mat4 g4f_mat4_rotation_x(float radians);
 g4f_mat4 g4f_mat4_rotation_y(float radians);
+g4f_mat4 g4f_mat4_rotation_z(float radians);
+g4f_mat4 g4f_mat4_scale(float x, float y, float z);
 g4f_mat4 g4f_mat4_perspective(float fovYRadians, float aspect, float zn, float zf);
 g4f_mat4 g4f_mat4_look_at(g4f_vec3 eye, g4f_vec3 at, g4f_vec3 up);
 

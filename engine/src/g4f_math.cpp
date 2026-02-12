@@ -70,11 +70,30 @@ g4f_mat4 g4f_mat4_rotation_x(float radians) {
     return out;
 }
 
+g4f_mat4 g4f_mat4_rotation_z(float radians) {
+    g4f_mat4 out = g4f_mat4_identity();
+    float c = std::cos(radians);
+    float s = std::sin(radians);
+    out.m[0] = c;
+    out.m[1] = s;
+    out.m[4] = -s;
+    out.m[5] = c;
+    return out;
+}
+
 g4f_mat4 g4f_mat4_translation(float x, float y, float z) {
     g4f_mat4 out = g4f_mat4_identity();
     out.m[12] = x;
     out.m[13] = y;
     out.m[14] = z;
+    return out;
+}
+
+g4f_mat4 g4f_mat4_scale(float x, float y, float z) {
+    g4f_mat4 out = g4f_mat4_identity();
+    out.m[0] = x;
+    out.m[5] = y;
+    out.m[10] = z;
     return out;
 }
 

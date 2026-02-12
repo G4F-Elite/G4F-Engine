@@ -65,7 +65,8 @@ Two levels:
 ## Math helpers
 Lightweight math for 3D (row-major matrices, row-vector `mul(v, m)` convention):
 - `g4f_mat4_identity`, `g4f_mat4_mul`
-- `g4f_mat4_translation`, `g4f_mat4_rotation_x`, `g4f_mat4_rotation_y`
+- `g4f_mat4_translation`, `g4f_mat4_rotation_x`, `g4f_mat4_rotation_y`, `g4f_mat4_rotation_z`
+- `g4f_mat4_scale`
 - `g4f_mat4_perspective`, `g4f_mat4_look_at`
 
 ## Mouse delta + cursor capture
@@ -135,7 +136,7 @@ This engine intentionally avoids loading textures/models from disk for 3D. Inste
 - Convenience: `g4f_gfx_mesh_create_cube_p3n3uv2`
 - Convenience: `g4f_gfx_mesh_create_plane_xz_p3n3uv2`
 - Draw: `g4f_gfx_draw_mesh` (uses identity model)
-- Draw (lit normals): `g4f_gfx_draw_mesh_xform` (pass model/rotation for correct normals)
+- Draw (lit normals): `g4f_gfx_draw_mesh_xform` (pass `model` for correct normal transform, including non-uniform scale)
 
 Helpers:
 - Swapchain size: `g4f_gfx_get_size`, `g4f_gfx_aspect`
