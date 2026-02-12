@@ -92,6 +92,7 @@ Immediate-mode UI helper (no editor, all in code):
 - Text input mouse: click to set caret, drag to select, auto horizontal scroll for long lines
 - Clipboard shortcuts in text input: `Ctrl+C` copy, `Ctrl+X` cut, `Ctrl+V` paste, `Enter`/`Esc` to finish editing
 - Editing: `Ctrl+A` select all, `Shift+Left/Right` select, `Home/End`, `Ctrl+Left/Right` jump by word
+- Images: `g4f_ui_image`, `g4f_ui_image_button` (bitmaps can be loaded or generated)
 
 ## Input notes
 - Text input comes from `WM_CHAR` and is available via `g4f_text_input_count` / `g4f_text_input_codepoint`.
@@ -143,6 +144,11 @@ For menus/panels/HUD on top of 3D, create a UI renderer bound to the swapchain:
 - lines
 - text
 - bitmap blits
+
+Bitmaps:
+- From file (UI): `g4f_bitmap_load`
+- From code (UI): `g4f_bitmap_create_rgba8`
+- Draw: `g4f_draw_bitmap`
 
 ## Input model
 The engine exposes key codes in a GLFW-like integer space for ergonomic porting of codebases that previously used GLFW **without linking GLFW**.
