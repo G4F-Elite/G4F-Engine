@@ -785,6 +785,10 @@ void g4f_gfx_mesh_destroy(g4f_gfx_mesh* mesh) {
 }
 
 void g4f_gfx_draw_mesh(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_gfx_material* material, const g4f_mat4* mvp) {
+    g4f_gfx_draw_mesh_xform(gfx, mesh, material, nullptr, mvp);
+}
+
+void g4f_gfx_draw_mesh_xform(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_gfx_material* material, const g4f_mat4* model, const g4f_mat4* mvp) {
     if (!gfx || !gfx->ctx) return;
     if (!mesh || !mesh->vb || !mesh->ib) return;
     if (!material || !mvp) return;
@@ -816,7 +820,7 @@ void g4f_gfx_draw_mesh(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_gfx_mat
     cb.tint[2] = material->tint[2];
     cb.tint[3] = material->tint[3];
     cb.hasTex = material->srv ? 1.0f : 0.0f;
-    cb.model = g4f_mat4_identity();
+    cb.model = model ? *model : g4f_mat4_identity();
     cb.lightDir[0] = gfx->lightDir[0];
     cb.lightDir[1] = gfx->lightDir[1];
     cb.lightDir[2] = gfx->lightDir[2];

@@ -267,6 +267,7 @@ g4f_gfx_mesh* g4f_gfx_mesh_create_p3n3uv2(g4f_gfx* gfx, const g4f_gfx_vertex_p3n
 g4f_gfx_mesh* g4f_gfx_mesh_create_cube_p3n3uv2(g4f_gfx* gfx, float halfExtent);
 void g4f_gfx_mesh_destroy(g4f_gfx_mesh* mesh);
 void g4f_gfx_draw_mesh(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_gfx_material* material, const g4f_mat4* mvp);
+void g4f_gfx_draw_mesh_xform(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_gfx_material* material, const g4f_mat4* model, const g4f_mat4* mvp);
 
 // Window.
 g4f_window* g4f_window_create(g4f_app* app, const g4f_window_desc* desc);
