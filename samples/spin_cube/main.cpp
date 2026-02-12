@@ -33,10 +33,12 @@ int main() {
     mdesc.depthTest = 1;
     mdesc.depthWrite = 1;
     mdesc.cullMode = 0;
-    g4f_gfx_material* mtl = g4f_gfx_material_create_unlit(gfx, &mdesc);
-    if (!cube || !checker || !mtl) {
+    g4f_gfx_material* mtlUnlit = g4f_gfx_material_create_unlit(gfx, &mdesc);
+    g4f_gfx_material* mtlLit = g4f_gfx_material_create_lit(gfx, &mdesc);
+    if (!cube || !checker || !mtlUnlit || !mtlLit) {
         std::fprintf(stderr, "Failed to create 3D resources\n");
-        g4f_gfx_material_destroy(mtl);
+        g4f_gfx_material_destroy(mtlUnlit);
+        g4f_gfx_material_destroy(mtlLit);
         g4f_gfx_texture_destroy(checker);
         g4f_gfx_mesh_destroy(cube);
         g4f_ctx3d_destroy(ctx);
@@ -46,7 +48,8 @@ int main() {
     g4f_renderer* ui = g4f_renderer_create_for_gfx(gfx);
     if (!ui) {
         std::fprintf(stderr, "Failed to create UI renderer for gfx\n");
-        g4f_gfx_material_destroy(mtl);
+        g4f_gfx_material_destroy(mtlUnlit);
+        g4f_gfx_material_destroy(mtlLit);
         g4f_gfx_texture_destroy(checker);
         g4f_gfx_mesh_destroy(cube);
         g4f_ctx3d_destroy(ctx);
@@ -70,6 +73,28 @@ int main() {
 
         g4f_camera_fps_update(&cam, window, g4f_ctx3d_dt(ctx));
 
+        // Read UI store (from previous frame) to drive 3D before drawing the overlay UI.
+        float slider = g4f_ui_store_get_f(uiState, "slider", 0.42f);
+        int alpha = g4f_ui_store_get_i(uiState, "alpha", 0);
+        int depthTest = g4f_ui_store_get_i(uiState, "depthTest", 1);
+        int depthWrite = g4f_ui_store_get_i(uiState, "depthWrite", 1);
+        int cullNone = g4f_ui_store_get_i(uiState, "cullNone", 0);
+        int lit = g4f_ui_store_get_i(uiState, "lit", 1);
+
+        uint32_t tint = g4f_rgba_u32((uint8_t)(80 + 175 * slider), (uint8_t)(140 + 115 * slider), 255, 255);
+        g4f_gfx_material_set_tint_rgba(mtlUnlit, tint);
+        g4f_gfx_material_set_tint_rgba(mtlLit, tint);
+        g4f_gfx_material_set_alpha_blend(mtlUnlit, alpha);
+        g4f_gfx_material_set_alpha_blend(mtlLit, alpha);
+        if (alpha) {
+            g4f_gfx_material_set_tint_rgba(mtlUnlit, (tint & 0xFFFFFF00u) | 150u);
+            g4f_gfx_material_set_tint_rgba(mtlLit, (tint & 0xFFFFFF00u) | 150u);
+        }
+        g4f_gfx_material_set_depth(mtlUnlit, depthTest, depthWrite);
+        g4f_gfx_material_set_depth(mtlLit, depthTest, depthWrite);
+        g4f_gfx_material_set_cull(mtlUnlit, cullNone ? 1 : 0);
+        g4f_gfx_material_set_cull(mtlLit, cullNone ? 1 : 0);
+
         g4f_frame3d_begin(ctx, g4f_rgba_u32(14, 14, 18, 255));
 
         float t = (float)g4f_ctx3d_time(ctx);
@@ -78,7 +103,11 @@ int main() {
         g4f_mat4 view = g4f_camera_fps_view(&cam);
         g4f_mat4 rot = g4f_mat4_mul(g4f_mat4_rotation_y(t * 0.8f), g4f_mat4_rotation_x(t * 0.5f));
         g4f_mat4 mvp = g4f_mat4_mul(g4f_mat4_mul(rot, view), proj);
-        g4f_gfx_draw_mesh(gfx, cube, mtl, &mvp);
+
+        // Light travels in this direction (world space).
+        g4f_gfx_set_light_dir(gfx, -0.4f, -1.0f, -0.2f);
+        g4f_gfx_set_light_colors(gfx, g4f_rgba_u32(255, 250, 240, 255), g4f_rgba_u32(40, 50, 70, 255));
+        g4f_gfx_draw_mesh(gfx, cube, lit ? mtlLit : mtlUnlit, &mvp);
 
         g4f_renderer_begin(ui);
         g4f_ui_begin(uiState, ui, window);
@@ -90,20 +119,16 @@ int main() {
         g4f_ui_checkbox_k(uiState, "checkbox (stored)", "show", 1, &show);
         float f = 0.0f;
         g4f_ui_slider_float_k(uiState, "slider (stored)", "slider", 0.42f, 0.0f, 1.0f, &f);
-        uint32_t tint = g4f_rgba_u32((uint8_t)(80 + 175 * f), (uint8_t)(140 + 115 * f), 255, 255);
-        g4f_gfx_material_set_tint_rgba(mtl, tint);
-        int alpha = 0;
-        g4f_ui_checkbox_k(uiState, "alpha blend (stored)", "alpha", 0, &alpha);
-        g4f_gfx_material_set_alpha_blend(mtl, alpha);
-        if (alpha) g4f_gfx_material_set_tint_rgba(mtl, (tint & 0xFFFFFF00u) | 150u);
-        int depthTest = 0;
-        int depthWrite = 0;
-        g4f_ui_checkbox_k(uiState, "depth test (stored)", "depthTest", 1, &depthTest);
-        g4f_ui_checkbox_k(uiState, "depth write (stored)", "depthWrite", 1, &depthWrite);
-        g4f_gfx_material_set_depth(mtl, depthTest, depthWrite);
-        int cullNone = 0;
-        g4f_ui_checkbox_k(uiState, "cull none (stored)", "cullNone", 0, &cullNone);
-        g4f_gfx_material_set_cull(mtl, cullNone ? 1 : 0);
+        int alphaUi = 0;
+        g4f_ui_checkbox_k(uiState, "alpha blend (stored)", "alpha", 0, &alphaUi);
+        int depthTestUi = 0;
+        int depthWriteUi = 0;
+        g4f_ui_checkbox_k(uiState, "depth test (stored)", "depthTest", 1, &depthTestUi);
+        g4f_ui_checkbox_k(uiState, "depth write (stored)", "depthWrite", 1, &depthWriteUi);
+        int cullNoneUi = 0;
+        g4f_ui_checkbox_k(uiState, "cull none (stored)", "cullNone", 0, &cullNoneUi);
+        int litUi = 0;
+        g4f_ui_checkbox_k(uiState, "lit shading (stored)", "lit", 1, &litUi);
         char textBuf[64];
         g4f_ui_input_text_k(uiState, "text input (stored)", "text", "hello...", 48, textBuf, (int)sizeof(textBuf));
         g4f_ui_layout_spacer(uiState, 10.0f);
@@ -117,7 +142,8 @@ int main() {
 
     g4f_ui_destroy(uiState);
     g4f_renderer_destroy(ui);
-    g4f_gfx_material_destroy(mtl);
+    g4f_gfx_material_destroy(mtlUnlit);
+    g4f_gfx_material_destroy(mtlLit);
     g4f_gfx_texture_destroy(checker);
     g4f_gfx_mesh_destroy(cube);
     g4f_ctx3d_destroy(ctx);
