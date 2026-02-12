@@ -63,6 +63,18 @@ int main() {
     assert(updated0 == 0);
     expectErrorContains("g4f_gfx_texture_update_rgba8");
 
+    // Clipboard validation.
+    g4f_clear_error();
+    char clip[8]{};
+    int got0 = g4f_clipboard_get_utf8(nullptr, clip, (int)sizeof(clip));
+    assert(got0 == 0);
+    expectErrorContains("g4f_clipboard_get_utf8");
+
+    g4f_clear_error();
+    int set0 = g4f_clipboard_set_utf8(nullptr, "x");
+    assert(set0 == 0);
+    expectErrorContains("g4f_clipboard_set_utf8");
+
     // Window create validation.
     g4f_app_desc appDesc{};
     g4f_app* app = g4f_app_create(&appDesc);
