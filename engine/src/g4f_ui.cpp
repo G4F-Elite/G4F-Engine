@@ -468,6 +468,24 @@ static void uiRegisterFocusable(g4f_ui* ui, uint64_t id) {
     if (ui->focus == 0) ui->focus = id;
 }
 
+static void uiDrawBitmapContained(g4f_renderer* renderer, const g4f_bitmap* bitmap, g4f_rect_f bounds, float opacity) {
+    if (!renderer || !bitmap) return;
+    int bw = 0, bh = 0;
+    g4f_bitmap_get_size(bitmap, &bw, &bh);
+    if (bw <= 0 || bh <= 0) return;
+
+    float scaleX = bounds.w / (float)bw;
+    float scaleY = bounds.h / (float)bh;
+    float scale = (scaleX < scaleY) ? scaleX : scaleY;
+    if (scale < 0.0f) scale = 0.0f;
+
+    float w = (float)bw * scale;
+    float h = (float)bh * scale;
+    float x = bounds.x + (bounds.w - w) * 0.5f;
+    float y = bounds.y + (bounds.h - h) * 0.5f;
+    g4f_draw_bitmap(renderer, bitmap, g4f_rect_f{x, y, w, h}, opacity);
+}
+
 int g4f_ui_label(g4f_ui* ui, const char* text_utf8, float size_px) {
     if (!ui || !ui->renderer || !text_utf8) return 0;
     g4f_rect_f r = g4f_ui_layout_next(ui, size_px + 10.0f);
@@ -548,6 +566,38 @@ int g4f_ui_button(g4f_ui* ui, const char* label_utf8) {
     bool focused = ui->focus == id;
     uiDrawItemBg(ui, r, hovered, active, focused);
     g4f_draw_text(ui->renderer, label_utf8, r.x + 14.0f, r.y + 10.0f, 18.0f, ui->theme.text);
+    if (focused && ui->navActivate) clicked = 1;
+    return clicked;
+}
+
+void g4f_ui_image(g4f_ui* ui, const g4f_bitmap* bitmap, float height, float opacity) {
+    if (!ui || !ui->renderer || !bitmap) return;
+    float h = (height > 0.0f) ? height : ui->layout.defaultItemH * 3.0f;
+    if (h < 44.0f) h = 44.0f;
+    g4f_rect_f r = g4f_ui_layout_next(ui, h);
+    uiDrawItemBg(ui, r, false, false, false);
+    g4f_rect_f inner{r.x + 10.0f, r.y + 10.0f, r.w - 20.0f, r.h - 20.0f};
+    uiDrawBitmapContained(ui->renderer, bitmap, inner, opacity);
+}
+
+int g4f_ui_image_button(g4f_ui* ui, const char* label_utf8, const g4f_bitmap* bitmap, float height, float opacity) {
+    if (!ui || !ui->renderer || !label_utf8 || !bitmap) return 0;
+    float h = (height > 0.0f) ? height : ui->layout.defaultItemH * 2.2f;
+    if (h < 44.0f) h = 44.0f;
+    g4f_rect_f r = g4f_ui_layout_next(ui, h);
+    uint64_t id = g4f_ui_make_id(ui, label_utf8);
+    uiRegisterFocusable(ui, id);
+
+    int clicked = uiItemBehavior(ui, id, r);
+    bool hovered = ui->hot == id;
+    bool active = ui->active == id && ui->mouseDown;
+    bool focused = ui->focus == id;
+    uiDrawItemBg(ui, r, hovered, active, focused);
+
+    g4f_rect_f iconBox{r.x + 12.0f, r.y + 8.0f, r.h - 16.0f, r.h - 16.0f};
+    uiDrawBitmapContained(ui->renderer, bitmap, iconBox, opacity);
+    g4f_draw_text(ui->renderer, label_utf8, iconBox.x + iconBox.w + 12.0f, r.y + (r.h * 0.5f - 10.0f), 18.0f, ui->theme.text);
+
     if (focused && ui->navActivate) clicked = 1;
     return clicked;
 }

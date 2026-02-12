@@ -64,6 +64,10 @@ int g4f_ui_slider_float(g4f_ui* ui, const char* label_utf8, float* value, float 
 int g4f_ui_text_wrapped(g4f_ui* ui, const char* text_utf8, float size_px);
 void g4f_ui_separator(g4f_ui* ui);
 
+// Image helpers (bitmaps can be loaded from file or generated in code).
+void g4f_ui_image(g4f_ui* ui, const g4f_bitmap* bitmap, float height, float opacity);
+int g4f_ui_image_button(g4f_ui* ui, const char* label_utf8, const g4f_bitmap* bitmap, float height, float opacity);
+
 // Keyed widgets (values persist inside g4f_ui store).
 int g4f_ui_checkbox_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8, int defaultValue, int* outValue);
 int g4f_ui_slider_float_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8, float defaultValue, float minValue, float maxValue, float* outValue);
