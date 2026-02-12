@@ -161,6 +161,25 @@ typedef struct g4f_rect_f {
     float h;
 } g4f_rect_f;
 
+typedef struct g4f_vec3 {
+    float x;
+    float y;
+    float z;
+} g4f_vec3;
+
+typedef struct g4f_mat4 {
+    // Row-major 4x4 matrix (matches D3D/HLSL `row_major` usage in this engine).
+    float m[16];
+} g4f_mat4;
+
+g4f_mat4 g4f_mat4_identity(void);
+g4f_mat4 g4f_mat4_mul(g4f_mat4 a, g4f_mat4 b);
+g4f_mat4 g4f_mat4_translation(float x, float y, float z);
+g4f_mat4 g4f_mat4_rotation_x(float radians);
+g4f_mat4 g4f_mat4_rotation_y(float radians);
+g4f_mat4 g4f_mat4_perspective(float fovYRadians, float aspect, float zn, float zf);
+g4f_mat4 g4f_mat4_look_at(g4f_vec3 eye, g4f_vec3 at, g4f_vec3 up);
+
 // Lifecycle / platform.
 const char* g4f_version_string(void);
 g4f_app* g4f_app_create(const g4f_app_desc* desc);
