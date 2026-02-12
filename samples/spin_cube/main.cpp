@@ -159,13 +159,17 @@ int main() {
         int depthTestUi = 0;
         int depthWriteUi = 0;
         g4f_ui_checkbox_k(uiState, "depth test (stored)", "depthTest", 1, &depthTestUi);
+        g4f_ui_disabled_begin(uiState, !depthTestUi);
         g4f_ui_checkbox_k(uiState, "depth write (stored)", "depthWrite", 1, &depthWriteUi);
+        g4f_ui_tooltip(uiState, "Depth write is only meaningful when depth test is enabled.", 14.0f);
+        g4f_ui_disabled_end(uiState);
         int cullNoneUi = 0;
         g4f_ui_checkbox_k(uiState, "cull none (stored)", "cullNone", 0, &cullNoneUi);
         int litUi = 0;
         g4f_ui_checkbox_k(uiState, "lit shading (stored)", "lit", 1, &litUi);
         int vsyncUi = 0;
         g4f_ui_checkbox_k(uiState, "vsync (stored)", "vsync", 1, &vsyncUi);
+        g4f_ui_tooltip(uiState, "VSync syncs Present() to the display (less tearing, more latency).", 14.0f);
         g4f_ui_slider_float_k(uiState, "scale X", "sx", 1.0f, 0.25f, 3.0f, &sx);
         g4f_ui_slider_float_k(uiState, "scale Y", "sy", 1.0f, 0.25f, 3.0f, &sy);
         g4f_ui_slider_float_k(uiState, "scale Z", "sz", 1.0f, 0.25f, 3.0f, &sz);
