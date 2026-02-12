@@ -14,3 +14,12 @@ std::wstring g4f_utf8_to_wide(const char* utf8) {
     return wide;
 }
 
+std::string g4f_wide_to_utf8(const wchar_t* wide) {
+    if (!wide || wide[0] == L'\0') return std::string();
+    int requiredBytes = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wide, -1, nullptr, 0, nullptr, nullptr);
+    if (requiredBytes <= 0) return std::string();
+    std::string utf8;
+    utf8.resize((size_t)requiredBytes - 1);
+    WideCharToMultiByte(CP_UTF8, 0, wide, -1, utf8.data(), requiredBytes, nullptr, nullptr);
+    return utf8;
+}

@@ -8,6 +8,7 @@
 #include <string>
 
 std::wstring g4f_utf8_to_wide(const char* utf8);
+std::string g4f_wide_to_utf8(const wchar_t* wide);
 int g4f_win32_vk_to_g4f_key(WPARAM vk, LPARAM lparam);
 
 namespace g4f::win32 {

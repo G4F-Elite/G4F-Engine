@@ -225,6 +225,11 @@ float g4f_mouse_wheel_delta(const g4f_window* window); // per-frame, resets on p
 int g4f_text_input_count(const g4f_window* window);
 uint32_t g4f_text_input_codepoint(const g4f_window* window, int index);
 
+// Clipboard (UTF-8).
+// Returns number of bytes written (excluding '\0') or 0 if empty/failure.
+int g4f_clipboard_get_utf8(const g4f_window* window, char* out_utf8, int out_cap);
+int g4f_clipboard_set_utf8(const g4f_window* window, const char* text_utf8);
+
 // 2D Renderer.
 g4f_renderer* g4f_renderer_create(g4f_window* window);
 void g4f_renderer_destroy(g4f_renderer* renderer);

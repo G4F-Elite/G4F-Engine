@@ -1,6 +1,7 @@
 #include "g4f_platform_win32.h"
 
 #include <algorithm>
+#include <cstring>
 
 namespace {
 
@@ -264,4 +265,48 @@ uint32_t g4f_text_input_codepoint(const g4f_window* window, int index) {
     if (!window) return 0;
     if (index < 0 || index >= window->state.textInputCount) return 0;
     return window->state.textInput[(size_t)index];
+}
+
+int g4f_clipboard_get_utf8(const g4f_window* window, char* out_utf8, int out_cap) {
+    if (out_utf8 && out_cap > 0) out_utf8[0] = '\0';
+    if (!window || !out_utf8 || out_cap <= 1) return 0;
+
+    if (!OpenClipboard(window->state.hwnd)) return 0;
+    HANDLE data = GetClipboardData(CF_UNICODETEXT);
+    if (!data) { CloseClipboard(); return 0; }
+    const wchar_t* wide = (const wchar_t*)GlobalLock(data);
+    if (!wide) { CloseClipboard(); return 0; }
+
+    std::string utf8 = g4f_wide_to_utf8(wide);
+    GlobalUnlock(data);
+    CloseClipboard();
+
+    if (utf8.empty()) return 0;
+    int toCopy = (int)utf8.size();
+    if (toCopy > out_cap - 1) toCopy = out_cap - 1;
+    std::memcpy(out_utf8, utf8.data(), (size_t)toCopy);
+    out_utf8[toCopy] = '\0';
+    return toCopy;
+}
+
+int g4f_clipboard_set_utf8(const g4f_window* window, const char* text_utf8) {
+    if (!window || !text_utf8) return 0;
+    std::wstring wide = g4f_utf8_to_wide(text_utf8);
+    if (wide.empty()) wide = L"";
+
+    if (!OpenClipboard(window->state.hwnd)) return 0;
+    EmptyClipboard();
+
+    size_t bytes = (wide.size() + 1) * sizeof(wchar_t);
+    HGLOBAL hmem = GlobalAlloc(GMEM_MOVEABLE, bytes);
+    if (!hmem) { CloseClipboard(); return 0; }
+    void* dst = GlobalLock(hmem);
+    if (!dst) { GlobalFree(hmem); CloseClipboard(); return 0; }
+    std::memcpy(dst, wide.c_str(), bytes);
+    GlobalUnlock(hmem);
+
+    HANDLE res = SetClipboardData(CF_UNICODETEXT, hmem);
+    CloseClipboard();
+    if (!res) { GlobalFree(hmem); return 0; }
+    return 1;
 }
