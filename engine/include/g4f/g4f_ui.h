@@ -51,9 +51,12 @@ void g4f_ui_layout_spacer(g4f_ui* ui, float height);
 int g4f_ui_label(g4f_ui* ui, const char* text_utf8, float size_px);
 void g4f_ui_panel_begin(g4f_ui* ui, const char* title_utf8, g4f_rect_f bounds);
 void g4f_ui_panel_end(g4f_ui* ui);
+void g4f_ui_panel_begin_scroll(g4f_ui* ui, const char* title_utf8, g4f_rect_f bounds);
 int g4f_ui_button(g4f_ui* ui, const char* label_utf8);
 int g4f_ui_checkbox(g4f_ui* ui, const char* label_utf8, int* value);
 int g4f_ui_slider_float(g4f_ui* ui, const char* label_utf8, float* value, float minValue, float maxValue);
+int g4f_ui_text_wrapped(g4f_ui* ui, const char* text_utf8, float size_px);
+void g4f_ui_separator(g4f_ui* ui);
 
 #ifdef __cplusplus
 } // extern "C"

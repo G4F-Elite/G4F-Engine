@@ -62,8 +62,17 @@ struct g4f_ui {
 
     float mouseX = 0.0f;
     float mouseY = 0.0f;
+    float wheelDelta = 0.0f;
     int mouseDown = 0;
     int mousePressed = 0;
+
+    struct ScrollState {
+        uint64_t id;
+        float scrollY;
+        float maxY;
+    };
+    std::vector<ScrollState> scrollStates;
+    ScrollState* currentScroll = nullptr;
 };
 
 g4f_ui_theme g4f_ui_theme_dark(void) {
@@ -84,6 +93,7 @@ g4f_ui* g4f_ui_create(void) {
     ui->theme = g4f_ui_theme_dark();
     ui->frameSeed = 0xC0DEF00DULL;
     ui->idStack.reserve(8);
+    ui->scrollStates.reserve(8);
     return ui;
 }
 
@@ -104,6 +114,7 @@ void g4f_ui_begin(g4f_ui* ui, g4f_renderer* renderer, const g4f_window* window) 
 
     ui->mouseX = window ? g4f_mouse_x(window) : 0.0f;
     ui->mouseY = window ? g4f_mouse_y(window) : 0.0f;
+    ui->wheelDelta = window ? g4f_mouse_wheel_delta(window) : 0.0f;
     ui->mouseDown = window ? g4f_mouse_down(window, G4F_MOUSE_BUTTON_LEFT) : 0;
     ui->mousePressed = window ? g4f_mouse_pressed(window, G4F_MOUSE_BUTTON_LEFT) : 0;
 
@@ -141,7 +152,8 @@ void g4f_ui_layout_begin(g4f_ui* ui, g4f_ui_layout layout) {
 g4f_rect_f g4f_ui_layout_next(g4f_ui* ui, float height) {
     if (!ui || !ui->hasLayout) return g4f_rect_f{0, 0, 0, 0};
     float h = (height > 0.0f) ? height : ui->layout.defaultItemH;
-    g4f_rect_f r{ui->layout.cursorX, ui->layout.cursorY, ui->layout.itemW, h};
+    float scrollY = ui->currentScroll ? ui->currentScroll->scrollY : 0.0f;
+    g4f_rect_f r{ui->layout.cursorX, ui->layout.cursorY - scrollY, ui->layout.itemW, h};
     ui->layout.cursorY += h + ui->layout.spacing;
     return r;
 }
@@ -154,6 +166,14 @@ void g4f_ui_layout_spacer(g4f_ui* ui, float height) {
 static uint64_t g4f_ui_make_id(g4f_ui* ui, const char* label) {
     uint64_t seed = ui->idStack.empty() ? ui->frameSeed : ui->idStack.back();
     return hashString(seed, label);
+}
+
+static g4f_ui::ScrollState* uiFindOrCreateScroll(g4f_ui* ui, uint64_t id) {
+    for (auto& s : ui->scrollStates) {
+        if (s.id == id) return &s;
+    }
+    ui->scrollStates.push_back(g4f_ui::ScrollState{id, 0.0f, 0.0f});
+    return &ui->scrollStates.back();
 }
 
 static void uiDrawItemBg(g4f_ui* ui, g4f_rect_f r, bool hovered, bool active) {
@@ -213,9 +233,32 @@ void g4f_ui_panel_begin(g4f_ui* ui, const char* title_utf8, g4f_rect_f bounds) {
     g4f_ui_layout_begin(ui, layout);
 }
 
+void g4f_ui_panel_begin_scroll(g4f_ui* ui, const char* title_utf8, g4f_rect_f bounds) {
+    if (!ui) return;
+    uint64_t id = g4f_ui_make_id(ui, title_utf8 ? title_utf8 : "panel");
+    ui->currentScroll = uiFindOrCreateScroll(ui, id);
+
+    g4f_ui_panel_begin(ui, title_utf8, bounds);
+
+    if (ui->currentScroll && ui->wheelDelta != 0.0f && pointInRect(ui->mouseX, ui->mouseY, ui->panelInner)) {
+        const float scrollSpeed = 34.0f;
+        ui->currentScroll->scrollY = ui->currentScroll->scrollY - ui->wheelDelta * scrollSpeed;
+        if (ui->currentScroll->scrollY < 0.0f) ui->currentScroll->scrollY = 0.0f;
+        if (ui->currentScroll->scrollY > ui->currentScroll->maxY) ui->currentScroll->scrollY = ui->currentScroll->maxY;
+    }
+}
+
 void g4f_ui_panel_end(g4f_ui* ui) {
     if (!ui || !ui->renderer) return;
     if (!ui->panelOpen) return;
+    if (ui->currentScroll) {
+        float contentH = ui->layout.cursorY - ui->panelInner.y;
+        if (contentH > 0.0f) contentH -= ui->layout.spacing;
+        ui->currentScroll->maxY = contentH > ui->panelInner.h ? (contentH - ui->panelInner.h) : 0.0f;
+        if (ui->currentScroll->scrollY < 0.0f) ui->currentScroll->scrollY = 0.0f;
+        if (ui->currentScroll->scrollY > ui->currentScroll->maxY) ui->currentScroll->scrollY = ui->currentScroll->maxY;
+        ui->currentScroll = nullptr;
+    }
     g4f_clip_pop(ui->renderer);
     ui->panelOpen = false;
 }
@@ -301,4 +344,21 @@ int g4f_ui_slider_float(g4f_ui* ui, const char* label_utf8, float* value, float 
     g4f_draw_text(ui->renderer, buf, r.x + r.w - 14.0f - tw, r.y + 8.0f, 16.0f, ui->theme.textMuted);
 
     return isActive ? 1 : 0;
+}
+
+int g4f_ui_text_wrapped(g4f_ui* ui, const char* text_utf8, float size_px) {
+    if (!ui || !ui->renderer || !text_utf8) return 0;
+    float tw = 0.0f, th = 0.0f;
+    g4f_measure_text_wrapped(ui->renderer, text_utf8, size_px, ui->layout.itemW, 10000.0f, &tw, &th);
+    if (th < size_px) th = size_px;
+    g4f_rect_f r = g4f_ui_layout_next(ui, th + 6.0f);
+    g4f_draw_text_wrapped(ui->renderer, text_utf8, r, size_px, ui->theme.textMuted);
+    return 0;
+}
+
+void g4f_ui_separator(g4f_ui* ui) {
+    if (!ui || !ui->renderer) return;
+    g4f_rect_f r = g4f_ui_layout_next(ui, 10.0f);
+    float y = r.y + r.h * 0.5f;
+    g4f_draw_line(ui->renderer, r.x, y, r.x + r.w, y, 1.5f, blendAlpha(ui->theme.panelBorder, 255));
 }
