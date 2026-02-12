@@ -35,7 +35,7 @@ if not exist "%BIN%" mkdir "%BIN%"
 if not exist "%BIN%\backrooms-tests" mkdir "%BIN%\backrooms-tests"
 
 set "CXXFLAGS=-std=c++20 -O2 -g -Wall -Wextra -Wpedantic"
-set "CXXFLAGS_BACKROOMS=%CXXFLAGS% -fno-strict-aliasing"
+set "CXXFLAGS_BACKROOMS=%CXXFLAGS% -fno-strict-aliasing -Wno-misleading-indentation -Wno-unused-parameter -Wno-sign-compare"
 set "INC_ENGINE=-Iengine\include"
 set "INC_COMPAT=-Icompat\include"
 
