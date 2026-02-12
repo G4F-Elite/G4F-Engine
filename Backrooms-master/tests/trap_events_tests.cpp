@@ -35,8 +35,8 @@ void testBlurUpdate() {
 void testFloorHoleRolls() {
     assert(floorHoleCountFromRoll(0) == 4);
     assert(floorHoleCountFromRoll(3) == 7);
-    assert(floorHoleDurationFromRoll(0) == 9.0f);
-    assert(floorHoleDurationFromRoll(5) == 14.0f);
+    assert(floorHoleDurationFromRoll(0) == 12.0f);
+    assert(floorHoleDurationFromRoll(5) == 17.0f);
 }
 
 int main() {
