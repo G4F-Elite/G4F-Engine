@@ -17,6 +17,10 @@ struct g4f_gfx {
     ID3D11Texture2D* depthTex = nullptr;
     ID3D11DepthStencilView* dsv = nullptr;
 
+    ID3D11RasterizerState* rsCullBack = nullptr;
+    ID3D11DepthStencilState* dsDepthLess = nullptr;
+    ID3D11BlendState* bsOpaque = nullptr;
+
     ID3D11VertexShader* vs = nullptr;
     ID3D11PixelShader* ps = nullptr;
     ID3D11InputLayout* inputLayout = nullptr;

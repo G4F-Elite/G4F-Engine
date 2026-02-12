@@ -201,6 +201,38 @@ float4 PSMain(PSIn i) : SV_Target { return i.col; }
     return true;
 }
 
+static bool gfxCreateDefaultStates(g4f_gfx* gfx) {
+    if (!gfx || !gfx->device) return false;
+
+    D3D11_RASTERIZER_DESC rs{};
+    rs.FillMode = D3D11_FILL_SOLID;
+    rs.CullMode = D3D11_CULL_BACK;
+    rs.FrontCounterClockwise = FALSE;
+    rs.DepthClipEnable = TRUE;
+    HRESULT hr = gfx->device->CreateRasterizerState(&rs, &gfx->rsCullBack);
+    if (FAILED(hr) || !gfx->rsCullBack) return false;
+
+    D3D11_DEPTH_STENCIL_DESC ds{};
+    ds.DepthEnable = TRUE;
+    ds.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    ds.DepthFunc = D3D11_COMPARISON_LESS;
+    ds.StencilEnable = FALSE;
+    hr = gfx->device->CreateDepthStencilState(&ds, &gfx->dsDepthLess);
+    if (FAILED(hr) || !gfx->dsDepthLess) return false;
+
+    D3D11_BLEND_DESC bs{};
+    bs.AlphaToCoverageEnable = FALSE;
+    bs.IndependentBlendEnable = FALSE;
+    D3D11_RENDER_TARGET_BLEND_DESC rt{};
+    rt.BlendEnable = FALSE;
+    rt.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    bs.RenderTarget[0] = rt;
+    hr = gfx->device->CreateBlendState(&bs, &gfx->bsOpaque);
+    if (FAILED(hr) || !gfx->bsOpaque) return false;
+
+    return true;
+}
+
 static bool gfxCreateUnlitPipeline(g4f_gfx* gfx) {
     static const char* kShader = R"(
 cbuffer CB0 : register(b0) {
@@ -318,6 +350,11 @@ g4f_gfx* g4f_gfx_create(g4f_window* window) {
         return nullptr;
     }
 
+    if (!gfxCreateDefaultStates(gfx)) {
+        g4f_gfx_destroy(gfx);
+        return nullptr;
+    }
+
     if (!gfxCreateUnlitPipeline(gfx)) {
         g4f_gfx_destroy(gfx);
         return nullptr;
@@ -339,6 +376,9 @@ void g4f_gfx_destroy(g4f_gfx* gfx) {
     safeRelease((IUnknown**)&gfx->inputLayout);
     safeRelease((IUnknown**)&gfx->ps);
     safeRelease((IUnknown**)&gfx->vs);
+    safeRelease((IUnknown**)&gfx->bsOpaque);
+    safeRelease((IUnknown**)&gfx->dsDepthLess);
+    safeRelease((IUnknown**)&gfx->rsCullBack);
     safeRelease((IUnknown**)&gfx->dsv);
     safeRelease((IUnknown**)&gfx->depthTex);
     safeRelease((IUnknown**)&gfx->rtv);
@@ -358,6 +398,11 @@ void g4f_gfx_begin(g4f_gfx* gfx, uint32_t clearRgba) {
     gfx->ctx->OMSetRenderTargets(1, &gfx->rtv, gfx->dsv);
     gfx->ctx->ClearRenderTargetView(gfx->rtv, clear);
     gfx->ctx->ClearDepthStencilView(gfx->dsv, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+
+    gfx->ctx->RSSetState(gfx->rsCullBack);
+    gfx->ctx->OMSetDepthStencilState(gfx->dsDepthLess, 0);
+    float blendFactor[4] = {0, 0, 0, 0};
+    gfx->ctx->OMSetBlendState(gfx->bsOpaque, blendFactor, 0xFFFFFFFFu);
 
     D3D11_VIEWPORT vp{};
     vp.TopLeftX = 0;
