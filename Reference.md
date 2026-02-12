@@ -73,6 +73,7 @@ For 3D camera controls:
 - Per-frame mouse delta: `g4f_mouse_dx`, `g4f_mouse_dy`
 - Capture/hide cursor + relative mode: `g4f_window_set_cursor_captured`
 - Implementation detail: when captured, the engine uses Win32 Raw Input (`WM_INPUT`) for stable deltas.
+- On focus loss (Alt-Tab), cursor capture is automatically released.
 
 ## FPS camera helper
 - Header: `engine/include/g4f/g4f_camera.h`
