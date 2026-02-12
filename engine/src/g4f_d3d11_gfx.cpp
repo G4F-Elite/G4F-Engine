@@ -430,7 +430,8 @@ g4f_gfx* g4f_gfx_create(g4f_window* window) {
     gfx->window = window;
 
     DXGI_SWAP_CHAIN_DESC scd{};
-    scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    // BGRA backbuffer improves Direct2D interop for UI overlay renderers.
+    scd.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     scd.SampleDesc.Count = 1;
     scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     scd.BufferCount = 2;
@@ -439,6 +440,7 @@ g4f_gfx* g4f_gfx_create(g4f_window* window) {
     scd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 
     UINT flags = 0;
+    flags |= D3D11_CREATE_DEVICE_BGRA_SUPPORT;
 #if defined(_DEBUG)
     flags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif

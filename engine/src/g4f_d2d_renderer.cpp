@@ -132,8 +132,10 @@ static HRESULT g4f_renderer_bind_gfx_backbuffer(g4f_renderer* renderer) {
 
     D2D1_BITMAP_PROPERTIES1 props{};
     props.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
-    props.pixelFormat.alphaMode = D2D1_ALPHA_MODE_PREMULTIPLIED;
-    props.bitmapOptions = D2D1_BITMAP_OPTIONS_TARGET;
+    // Swapchain backbuffers are typically treated as opaque; using IGNORE is the
+    // most broadly compatible choice for D2D-on-DXGI interop.
+    props.pixelFormat.alphaMode = D2D1_ALPHA_MODE_IGNORE;
+    props.bitmapOptions = (D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW);
     props.dpiX = 96.0f;
     props.dpiY = 96.0f;
 
