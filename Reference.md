@@ -69,6 +69,7 @@ Immediate-mode UI helper (no editor, all in code):
 - Panels: `g4f_ui_panel_begin` / `g4f_ui_panel_end` (includes clipping)
 - Scroll panels: `g4f_ui_panel_begin_scroll` (mouse wheel scroll)
 - Keyboard nav (built-in): `UP/DOWN` (or `W/S`) focus, `ENTER/SPACE` activate, `LEFT/RIGHT` (or `A/D`) adjust slider (hold `SHIFT` for fine step)
+- Persistent UI state (optional): `g4f_ui_store_*` and keyed widgets `g4f_ui_checkbox_k` / `g4f_ui_slider_float_k`
 
 ## Text + clipping helpers
 - Wrapped text: `g4f_draw_text_wrapped`, `g4f_measure_text_wrapped`
