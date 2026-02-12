@@ -32,6 +32,7 @@ int main() {
     mdesc.alphaBlend = 0;
     mdesc.depthTest = 1;
     mdesc.depthWrite = 1;
+    mdesc.cullMode = 0;
     g4f_gfx_material* mtl = g4f_gfx_material_create_unlit(gfx, &mdesc);
     if (!cube || !checker || !mtl) {
         std::fprintf(stderr, "Failed to create 3D resources\n");
@@ -95,6 +96,14 @@ int main() {
         g4f_ui_checkbox_k(uiState, "alpha blend (stored)", "alpha", 0, &alpha);
         g4f_gfx_material_set_alpha_blend(mtl, alpha);
         if (alpha) g4f_gfx_material_set_tint_rgba(mtl, (tint & 0xFFFFFF00u) | 150u);
+        int depthTest = 0;
+        int depthWrite = 0;
+        g4f_ui_checkbox_k(uiState, "depth test (stored)", "depthTest", 1, &depthTest);
+        g4f_ui_checkbox_k(uiState, "depth write (stored)", "depthWrite", 1, &depthWrite);
+        g4f_gfx_material_set_depth(mtl, depthTest, depthWrite);
+        int cullNone = 0;
+        g4f_ui_checkbox_k(uiState, "cull none (stored)", "cullNone", 0, &cullNone);
+        g4f_gfx_material_set_cull(mtl, cullNone ? 1 : 0);
         char textBuf[64];
         g4f_ui_input_text_k(uiState, "text input (stored)", "text", "hello...", 48, textBuf, (int)sizeof(textBuf));
         g4f_ui_layout_spacer(uiState, 10.0f);
