@@ -107,7 +107,7 @@ int main() {
         // Light travels in this direction (world space).
         g4f_gfx_set_light_dir(gfx, -0.4f, -1.0f, -0.2f);
         g4f_gfx_set_light_colors(gfx, g4f_rgba_u32(255, 250, 240, 255), g4f_rgba_u32(40, 50, 70, 255));
-        g4f_gfx_draw_mesh(gfx, cube, lit ? mtlLit : mtlUnlit, &mvp);
+        g4f_gfx_draw_mesh_xform(gfx, cube, lit ? mtlLit : mtlUnlit, &rot, &mvp);
 
         g4f_renderer_begin(ui);
         g4f_ui_begin(uiState, ui, window);
