@@ -26,21 +26,20 @@ void testNoteSpawnDelayRange() {
 }
 
 void testCacheOutcomeAddsOneItem() {
-    int b = 0, m = 0, t = 0;
+    int b = 0, m = 0;
     float hp = 80.0f, sn = 60.0f, st = 40.0f;
     bool breach = false;
-    applyEchoOutcome(ECHO_CACHE, 1, b, m, t, hp, sn, st, breach);
+    applyEchoOutcome(ECHO_CACHE, 1, b, m, hp, sn, st, breach);
     assert(!breach);
-    assert(b == 0);
-    assert(m == 1);
-    assert(t == 0);
+    assert(b == 1);
+    assert(m == 0);
 }
 
 void testRestoreOutcomeClampsVitals() {
-    int b = 0, m = 0, t = 0;
+    int b = 0, m = 0;
     float hp = 95.0f, sn = 90.0f, st = 75.0f;
     bool breach = false;
-    applyEchoOutcome(ECHO_RESTORE, 0, b, m, t, hp, sn, st, breach);
+    applyEchoOutcome(ECHO_RESTORE, 0, b, m, hp, sn, st, breach);
     assert(!breach);
     assert(hp == 100.0f);
     assert(sn == 100.0f);
@@ -48,10 +47,10 @@ void testRestoreOutcomeClampsVitals() {
 }
 
 void testBreachOutcome() {
-    int b = 0, m = 0, t = 0;
+    int b = 0, m = 0;
     float hp = 50.0f, sn = 10.0f, st = 50.0f;
     bool breach = false;
-    applyEchoOutcome(ECHO_BREACH, 0, b, m, t, hp, sn, st, breach);
+    applyEchoOutcome(ECHO_BREACH, 0, b, m, hp, sn, st, breach);
     assert(breach);
     assert(sn == 0.0f);
 }
