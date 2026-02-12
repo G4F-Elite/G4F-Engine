@@ -37,6 +37,16 @@ set "LD_ENGINE_3D=-lole32 -luuid -lgdi32 -luser32 -ld3d11 -ldxgi -ld3dcompiler_4
 set "LD_ENGINE_ALL=%LD_ENGINE% %LD_ENGINE_3D%"
 set "LD_BACKROOMS=-lws2_32 -lwinmm"
 
+REM Run an exe with a timeout (milliseconds). Exits this script on failure/timeout.
+REM Usage: call :run_with_timeout "path\to.exe" 10000
+goto :after_helpers
+:run_with_timeout
+set "EXE=%~1"
+set "TIMEOUT_MS=%~2"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\\run_with_timeout.ps1" -Exe "%EXE%" -TimeoutMs %TIMEOUT_MS%
+exit /b %errorlevel%
+:after_helpers
+
 echo === Build: engine (static lib) ===
 set "ENGINE_OBJ=%OBJ%\engine"
 
@@ -63,11 +73,13 @@ echo === Build: engine tests ===
 %CXX% %CXXFLAGS% %INC_ENGINE% tests\engine_keycodes_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\engine_keycodes_tests.exe" || exit /b 1
 %CXX% %CXXFLAGS% %INC_ENGINE% tests\ui_layout_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\ui_layout_tests.exe" || exit /b 1
 %CXX% %CXXFLAGS% %INC_ENGINE% tests\math_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\math_tests.exe" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\gfx_smoke_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_3D% -o "%BIN%\gfx_smoke_tests.exe" || exit /b 1
 
 echo === Run: engine tests ===
-"%BIN%\engine_keycodes_tests.exe" || exit /b 1
-"%BIN%\ui_layout_tests.exe" || exit /b 1
-"%BIN%\math_tests.exe" || exit /b 1
+call :run_with_timeout "%BIN%\engine_keycodes_tests.exe" 10000 || exit /b 1
+call :run_with_timeout "%BIN%\ui_layout_tests.exe" 10000 || exit /b 1
+call :run_with_timeout "%BIN%\math_tests.exe" 10000 || exit /b 1
+call :run_with_timeout "%BIN%\gfx_smoke_tests.exe" 15000 || exit /b 1
 
 if exist "Backrooms-master\tests" (
   echo === Build: Backrooms tests [no GLFW] ===
@@ -80,7 +92,9 @@ if exist "Backrooms-master\tests" (
   echo === Run: Backrooms tests ===
   for %%E in ("%BIN%\backrooms-tests"\*.exe) do (
     echo [Backrooms] %%~nxE
-    "%%E" || exit /b 1
+    set "EXE=%%~fE"
+    set "TIMEOUT_MS=60000"
+    call :run_with_timeout "!EXE!" !TIMEOUT_MS! || exit /b 1
   )
 ) else (
   echo === Skip: Backrooms tests [Backrooms-master not found] ===
