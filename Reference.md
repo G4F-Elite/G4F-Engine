@@ -67,6 +67,7 @@ Immediate-mode UI helper (no editor, all in code):
 - Header: `engine/include/g4f/g4f_ui.h`
 - Typical flow per-frame: `g4f_ui_begin` → `g4f_ui_layout_begin` → widgets → `g4f_ui_end`
 - Panels: `g4f_ui_panel_begin` / `g4f_ui_panel_end` (includes clipping)
+- Scroll panels: `g4f_ui_panel_begin_scroll` (mouse wheel scroll)
 
 ## Text + clipping helpers
 - Wrapped text: `g4f_draw_text_wrapped`, `g4f_measure_text_wrapped`
