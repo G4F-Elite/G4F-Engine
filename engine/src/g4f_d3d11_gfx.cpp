@@ -221,6 +221,18 @@ static bool gfxCreateDefaultStates(g4f_gfx* gfx) {
     hr = gfx->device->CreateDepthStencilState(&ds, &gfx->dsDepthLess);
     if (FAILED(hr) || !gfx->dsDepthLess) return false;
 
+    ds.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+    hr = gfx->device->CreateDepthStencilState(&ds, &gfx->dsDepthLessNoWrite);
+    if (FAILED(hr) || !gfx->dsDepthLessNoWrite) return false;
+
+    D3D11_DEPTH_STENCIL_DESC dsOff{};
+    dsOff.DepthEnable = FALSE;
+    dsOff.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+    dsOff.DepthFunc = D3D11_COMPARISON_ALWAYS;
+    dsOff.StencilEnable = FALSE;
+    hr = gfx->device->CreateDepthStencilState(&dsOff, &gfx->dsDisabled);
+    if (FAILED(hr) || !gfx->dsDisabled) return false;
+
     D3D11_BLEND_DESC bs{};
     bs.AlphaToCoverageEnable = FALSE;
     bs.IndependentBlendEnable = FALSE;
@@ -230,6 +242,22 @@ static bool gfxCreateDefaultStates(g4f_gfx* gfx) {
     bs.RenderTarget[0] = rt;
     hr = gfx->device->CreateBlendState(&bs, &gfx->bsOpaque);
     if (FAILED(hr) || !gfx->bsOpaque) return false;
+
+    D3D11_BLEND_DESC bsA{};
+    bsA.AlphaToCoverageEnable = FALSE;
+    bsA.IndependentBlendEnable = FALSE;
+    D3D11_RENDER_TARGET_BLEND_DESC rta{};
+    rta.BlendEnable = TRUE;
+    rta.SrcBlend = D3D11_BLEND_SRC_ALPHA;
+    rta.DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+    rta.BlendOp = D3D11_BLEND_OP_ADD;
+    rta.SrcBlendAlpha = D3D11_BLEND_ONE;
+    rta.DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+    rta.BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    rta.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    bsA.RenderTarget[0] = rta;
+    hr = gfx->device->CreateBlendState(&bsA, &gfx->bsAlpha);
+    if (FAILED(hr) || !gfx->bsAlpha) return false;
 
     return true;
 }
@@ -378,7 +406,10 @@ void g4f_gfx_destroy(g4f_gfx* gfx) {
     safeRelease((IUnknown**)&gfx->ps);
     safeRelease((IUnknown**)&gfx->vs);
     safeRelease((IUnknown**)&gfx->bsOpaque);
+    safeRelease((IUnknown**)&gfx->bsAlpha);
     safeRelease((IUnknown**)&gfx->dsDepthLess);
+    safeRelease((IUnknown**)&gfx->dsDepthLessNoWrite);
+    safeRelease((IUnknown**)&gfx->dsDisabled);
     safeRelease((IUnknown**)&gfx->rsCullBack);
     safeRelease((IUnknown**)&gfx->dsv);
     safeRelease((IUnknown**)&gfx->depthTex);
@@ -462,6 +493,9 @@ struct g4f_gfx_texture {
 struct g4f_gfx_material {
     float tint[4]{1.0f, 1.0f, 1.0f, 1.0f};
     ID3D11ShaderResourceView* srv = nullptr; // optional
+    int alphaBlend = 0;
+    int depthTest = 1;
+    int depthWrite = 1;
 };
 
 struct g4f_gfx_mesh {
@@ -553,6 +587,10 @@ g4f_gfx_material* g4f_gfx_material_create_unlit(g4f_gfx* gfx, const g4f_gfx_mate
         material->srv = desc->texture->srv;
         material->srv->AddRef();
     }
+
+    material->alphaBlend = (desc && desc->alphaBlend) ? 1 : 0;
+    material->depthTest = (!desc || desc->depthTest) ? 1 : 0;
+    material->depthWrite = (!desc || desc->depthWrite) ? 1 : 0;
 
     return material;
 }
@@ -666,6 +704,12 @@ void g4f_gfx_draw_mesh(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_gfx_mat
     gfx->ctx->IASetVertexBuffers(0, 1, &mesh->vb, &stride, &offset);
     gfx->ctx->IASetIndexBuffer(mesh->ib, DXGI_FORMAT_R16_UINT, 0);
     gfx->ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    // Per-material pipeline state.
+    float blendFactor[4] = {0, 0, 0, 0};
+    gfx->ctx->OMSetBlendState(material->alphaBlend ? gfx->bsAlpha : gfx->bsOpaque, blendFactor, 0xFFFFFFFFu);
+    if (!material->depthTest) gfx->ctx->OMSetDepthStencilState(gfx->dsDisabled, 0);
+    else gfx->ctx->OMSetDepthStencilState(material->depthWrite ? gfx->dsDepthLess : gfx->dsDepthLessNoWrite, 0);
 
     CbUnlit cb{};
     cb.mvp = *mvp;

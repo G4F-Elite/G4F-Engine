@@ -238,6 +238,9 @@ void g4f_gfx_texture_destroy(g4f_gfx_texture* texture);
 typedef struct g4f_gfx_material_unlit_desc {
     uint32_t tintRgba;            // multiplies output
     g4f_gfx_texture* texture;     // optional
+    int alphaBlend;              // 0/1 (default 0)
+    int depthTest;               // 0/1 (default 1)
+    int depthWrite;              // 0/1 (default 1)
 } g4f_gfx_material_unlit_desc;
 
 g4f_gfx_material* g4f_gfx_material_create_unlit(g4f_gfx* gfx, const g4f_gfx_material_unlit_desc* desc);

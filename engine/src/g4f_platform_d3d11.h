@@ -19,7 +19,10 @@ struct g4f_gfx {
 
     ID3D11RasterizerState* rsCullBack = nullptr;
     ID3D11DepthStencilState* dsDepthLess = nullptr;
+    ID3D11DepthStencilState* dsDepthLessNoWrite = nullptr;
+    ID3D11DepthStencilState* dsDisabled = nullptr;
     ID3D11BlendState* bsOpaque = nullptr;
+    ID3D11BlendState* bsAlpha = nullptr;
 
     ID3D11VertexShader* vs = nullptr;
     ID3D11PixelShader* ps = nullptr;
