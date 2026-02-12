@@ -503,6 +503,11 @@ float g4f_gfx_aspect(const g4f_gfx* gfx) {
     return (float)gfx->cachedW / (float)gfx->cachedH;
 }
 
+void g4f_gfx_set_vsync(g4f_gfx* gfx, int enabled) {
+    if (!gfx) return;
+    gfx->vsync = enabled ? 1 : 0;
+}
+
 void g4f_gfx_set_light_dir(g4f_gfx* gfx, float x, float y, float z) {
     if (!gfx) return;
     gfx->lightDir[0] = x;
@@ -859,5 +864,5 @@ void g4f_gfx_draw_mesh_xform(g4f_gfx* gfx, const g4f_gfx_mesh* mesh, const g4f_g
 
 void g4f_gfx_end(g4f_gfx* gfx) {
     if (!gfx || !gfx->swapChain) return;
-    gfx->swapChain->Present(1, 0);
+    gfx->swapChain->Present(gfx->vsync ? 1u : 0u, 0);
 }

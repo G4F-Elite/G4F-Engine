@@ -9,6 +9,7 @@ struct g4f_gfx {
     g4f_window* window = nullptr;
     int cachedW = 0;
     int cachedH = 0;
+    int vsync = 1;
 
     IDXGISwapChain* swapChain = nullptr;
     ID3D11Device* device = nullptr;

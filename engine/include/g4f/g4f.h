@@ -212,6 +212,7 @@ void g4f_gfx_begin(g4f_gfx* gfx, uint32_t clearRgba);
 void g4f_gfx_end(g4f_gfx* gfx); // presents
 void g4f_gfx_get_size(const g4f_gfx* gfx, int* width, int* height);
 float g4f_gfx_aspect(const g4f_gfx* gfx);
+void g4f_gfx_set_vsync(g4f_gfx* gfx, int enabled);
 
 // Global lighting state (used by lit materials).
 void g4f_gfx_set_light_dir(g4f_gfx* gfx, float x, float y, float z); // direction light travels
