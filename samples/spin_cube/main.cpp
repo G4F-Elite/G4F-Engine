@@ -47,6 +47,8 @@ int main() {
         g4f_ui_checkbox_k(uiState, "checkbox (stored)", "show", 1, &show);
         float f = 0.0f;
         g4f_ui_slider_float_k(uiState, "slider (stored)", "slider", 0.42f, 0.0f, 1.0f, &f);
+        char textBuf[64];
+        g4f_ui_input_text_k(uiState, "text input (stored)", "text", "hello...", 48, textBuf, (int)sizeof(textBuf));
         g4f_ui_layout_spacer(uiState, 10.0f);
         g4f_ui_text_wrapped(uiState, "Long text to force scrolling. Long text to force scrolling. Long text to force scrolling. Long text to force scrolling. Long text to force scrolling.", 14.0f);
         g4f_ui_panel_end(uiState);

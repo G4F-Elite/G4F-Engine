@@ -39,6 +39,13 @@ int main() {
         assert(c == 11);
         g4f_ui_destroy(ui);
     }
+    {
+        g4f_ui* ui = g4f_ui_create();
+        char buf[16];
+        int changed = g4f_ui_input_text_k(ui, "label", "key", "ph", 8, buf, (int)sizeof(buf));
+        (void)changed;
+        g4f_ui_destroy(ui);
+    }
     std::cout << "ui_layout_tests: OK\n";
     return 0;
 }

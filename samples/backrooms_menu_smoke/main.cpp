@@ -62,6 +62,9 @@ int main() {
         float vol = 0.0f;
         g4f_ui_slider_float_k(ui, "slider (stored)", "vol", 0.65f, 0.0f, 1.0f, &vol);
 
+        char nameBuf[64];
+        g4f_ui_input_text_k(ui, "player name (stored)", "player_name", "type here...", 48, nameBuf, (int)sizeof(nameBuf));
+
         g4f_ui_panel_end(ui);
         g4f_ui_end(ui);
 
