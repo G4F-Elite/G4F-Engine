@@ -124,7 +124,8 @@ int main(){
 This engine intentionally avoids loading textures/models from disk for 3D. Instead, you create resources from code:
 - Textures: `g4f_gfx_texture_create_rgba8` (pixels come from memory)
 - Convenience: `g4f_gfx_texture_create_solid_rgba8`, `g4f_gfx_texture_create_checker_rgba8`
-- Materials: `g4f_gfx_material_create_unlit` (tint + optional texture + alpha/depth flags)
+- Materials: `g4f_gfx_material_create_unlit` (tint + optional texture + alpha/depth/cull flags)
+- Materials (lit): `g4f_gfx_material_create_lit` (Lambert lighting, uses global light state)
 - Runtime toggles: `g4f_gfx_material_set_alpha_blend`, `g4f_gfx_material_set_depth`
 - Culling: `g4f_gfx_material_set_cull` (back/none/front)
 - Meshes: `g4f_gfx_mesh_create_p3n3uv2`
@@ -133,6 +134,7 @@ This engine intentionally avoids loading textures/models from disk for 3D. Inste
 
 Helpers:
 - Swapchain size: `g4f_gfx_get_size`, `g4f_gfx_aspect`
+- Lighting: `g4f_gfx_set_light_dir`, `g4f_gfx_set_light_colors`
 
 ### 3D + UI overlay
 For menus/panels/HUD on top of 3D, create a UI renderer bound to the swapchain:
