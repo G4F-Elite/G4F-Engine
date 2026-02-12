@@ -689,12 +689,15 @@ int g4f_ui_input_text_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8
     uint64_t caretKey = uiDeriveId(id, 0xCACE7710u);
     uint64_t anchorKey = uiDeriveId(id, 0xA11C0B1Eu);
     uint64_t dragKey = uiDeriveId(id, 0xD2A611A5u);
+    uint64_t scrollKey = uiDeriveId(id, 0x5C2011E0u);
     // Caret/selection are stored as UTF-8 byte indices.
     auto itCaret = ui->storeInt.find(caretKey);
     auto itAnchor = ui->storeInt.find(anchorKey);
     if (itCaret == ui->storeInt.end()) ui->storeInt.emplace(caretKey, (int)value.size());
     if (itAnchor == ui->storeInt.end()) ui->storeInt.emplace(anchorKey, (int)value.size());
     if (ui->storeInt.find(dragKey) == ui->storeInt.end()) ui->storeInt.emplace(dragKey, 0);
+    if (ui->storeFloat.find(scrollKey) == ui->storeFloat.end()) ui->storeFloat.emplace(scrollKey, 0.0f);
+    float& scrollX = ui->storeFloat[scrollKey];
     itCaret = ui->storeInt.find(caretKey);
     itAnchor = ui->storeInt.find(anchorKey);
     size_t caret = itCaret != ui->storeInt.end() ? uiUtf8ClampBoundary(value, (size_t)itCaret->second) : value.size();
@@ -709,14 +712,14 @@ int g4f_ui_input_text_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8
             int shift = g4f_key_down(ui->window, G4F_KEY_LEFT_SHIFT) || g4f_key_down(ui->window, G4F_KEY_RIGHT_SHIFT);
             ui->textActive = id;
             ui->storeInt[dragKey] = 1;
-            float localX = ui->mouseX - (box.x + 6.0f);
+            float localX = (ui->mouseX - (box.x + 6.0f)) + scrollX;
             caret = uiCaretFromX(ui->renderer, value, 16.0f, localX);
             if (!shift) anchor = caret;
         }
     }
 
     if (ui->window && ui->textActive == id && ui->storeInt[dragKey] && ui->active == id && ui->mouseDown) {
-        float localX = ui->mouseX - (box.x + 6.0f);
+        float localX = (ui->mouseX - (box.x + 6.0f)) + scrollX;
         caret = uiCaretFromX(ui->renderer, value, 16.0f, localX);
     }
 
@@ -852,6 +855,31 @@ int g4f_ui_input_text_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8
         }
     }
 
+    // Keep caret visible (horizontal scroll).
+    if (!active) {
+        scrollX = 0.0f;
+    } else {
+        float caretW = 0.0f, caretH = 0.0f;
+        if (!value.empty() && caret > 0) {
+            std::string left = value.substr(0, caret);
+            g4f_measure_text(ui->renderer, left.c_str(), 16.0f, &caretW, &caretH);
+        }
+
+        float fullW = 0.0f, fullH = 0.0f;
+        if (!value.empty()) g4f_measure_text(ui->renderer, value.c_str(), 16.0f, &fullW, &fullH);
+
+        float viewW = box.w - 12.0f;
+        if (viewW < 1.0f) viewW = 1.0f;
+        float maxScroll = std::max(0.0f, fullW - viewW);
+
+        float margin = 10.0f;
+        float caretVis = caretW - scrollX;
+        if (caretVis < margin) scrollX = caretW - margin;
+        if (caretVis > (viewW - margin)) scrollX = caretW - (viewW - margin);
+
+        scrollX = clampFloat(scrollX, 0.0f, maxScroll);
+    }
+
     // Store caret/anchor
     ui->storeInt[caretKey] = (int)caret;
     ui->storeInt[anchorKey] = (int)anchor;
@@ -866,18 +894,19 @@ int g4f_ui_input_text_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8
         float lw = 0.0f, lh = 0.0f, mw = 0.0f, mh = 0.0f;
         g4f_measure_text(ui->renderer, left.c_str(), 16.0f, &lw, &lh);
         g4f_measure_text(ui->renderer, mid.c_str(), 16.0f, &mw, &mh);
-        g4f_draw_rect(ui->renderer, g4f_rect_f{box.x + 6.0f + lw, box.y - 1.0f, mw, 18.0f}, blendAlpha(ui->theme.accent, 120));
+        g4f_draw_rect(ui->renderer, g4f_rect_f{box.x + 6.0f + lw - scrollX, box.y - 1.0f, mw, 18.0f}, blendAlpha(ui->theme.accent, 120));
     }
 
     const char* drawText = value.empty() ? (placeholder_utf8 ? placeholder_utf8 : "") : value.c_str();
     uint32_t drawColor = value.empty() ? ui->theme.textMuted : ui->theme.text;
-    g4f_draw_text(ui->renderer, drawText, box.x + 6.0f, box.y - 2.0f, 16.0f, drawColor);
+    float baseX = box.x + 6.0f - (value.empty() ? 0.0f : scrollX);
+    g4f_draw_text(ui->renderer, drawText, baseX, box.y - 2.0f, 16.0f, drawColor);
 
     if (active) {
         std::string left = value.substr(0, caret);
         float lw = 0.0f, lh = 0.0f;
         g4f_measure_text(ui->renderer, left.c_str(), 16.0f, &lw, &lh);
-        float cx = box.x + 6.0f + lw;
+        float cx = box.x + 6.0f + lw - scrollX;
         g4f_draw_line(ui->renderer, cx, box.y - 1.0f, cx, box.y + 16.0f, 1.5f, ui->theme.text);
     }
     g4f_clip_pop(ui->renderer);
