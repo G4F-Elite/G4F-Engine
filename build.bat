@@ -69,17 +69,21 @@ echo === Run: engine tests ===
 "%BIN%\ui_layout_tests.exe" || exit /b 1
 "%BIN%\math_tests.exe" || exit /b 1
 
-echo === Build: Backrooms tests (no GLFW) ===
-for %%F in (Backrooms-master\tests\*.cpp) do (
-  set "NAME=%%~nF"
-  echo [Backrooms] %%~nxF
-  %CXX% %CXXFLAGS% %INC_COMPAT% "%%F" -o "%BIN%\backrooms-tests\!NAME!.exe" %LD_BACKROOMS% || exit /b 1
-)
+if exist "Backrooms-master\tests" (
+  echo === Build: Backrooms tests (no GLFW) ===
+  for %%F in (Backrooms-master\tests\*.cpp) do (
+    set "NAME=%%~nF"
+    echo [Backrooms] %%~nxF
+    %CXX% %CXXFLAGS% %INC_COMPAT% "%%F" -o "%BIN%\backrooms-tests\!NAME!.exe" %LD_BACKROOMS% || exit /b 1
+  )
 
-echo === Run: Backrooms tests ===
-for %%E in ("%BIN%\backrooms-tests"\*.exe) do (
-  echo [Backrooms] %%~nxE
-  "%%E" || exit /b 1
+  echo === Run: Backrooms tests ===
+  for %%E in ("%BIN%\backrooms-tests"\*.exe) do (
+    echo [Backrooms] %%~nxE
+    "%%E" || exit /b 1
+  )
+) else (
+  echo === Skip: Backrooms tests (Backrooms-master not found) ===
 )
 
 echo === OK ===
