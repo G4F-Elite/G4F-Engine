@@ -83,6 +83,8 @@ int main() {
         int depthWrite = g4f_ui_store_get_i(uiState, "depthWrite", 1);
         int cullNone = g4f_ui_store_get_i(uiState, "cullNone", 0);
         int lit = g4f_ui_store_get_i(uiState, "lit", 1);
+        int vsync = g4f_ui_store_get_i(uiState, "vsync", 1);
+        g4f_gfx_set_vsync(gfx, vsync);
 
         uint32_t tint = g4f_rgba_u32((uint8_t)(80 + 175 * slider), (uint8_t)(140 + 115 * slider), 255, 255);
         g4f_gfx_material_set_tint_rgba(mtlUnlit, tint);
@@ -139,6 +141,16 @@ int main() {
         g4f_ui_checkbox_k(uiState, "cull none (stored)", "cullNone", 0, &cullNoneUi);
         int litUi = 0;
         g4f_ui_checkbox_k(uiState, "lit shading (stored)", "lit", 1, &litUi);
+        int vsyncUi = 0;
+        g4f_ui_checkbox_k(uiState, "vsync (stored)", "vsync", 1, &vsyncUi);
+        char titleBuf[96];
+        int titleChanged = g4f_ui_input_text_k(uiState, "window title", "title", "", 80, titleBuf, (int)sizeof(titleBuf));
+        if (titleChanged || titleBuf[0] != '\0') {
+            char composed[160];
+            if (titleBuf[0] != '\0') std::snprintf(composed, sizeof(composed), "%s - %s", "G4F Engine", titleBuf);
+            else std::snprintf(composed, sizeof(composed), "%s", "G4F Engine - Spin Cube (3D bring-up)");
+            g4f_window_set_title(window, composed);
+        }
         char textBuf[64];
         g4f_ui_input_text_k(uiState, "text input (stored)", "text", "hello...", 48, textBuf, (int)sizeof(textBuf));
         g4f_ui_layout_spacer(uiState, 10.0f);
