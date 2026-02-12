@@ -62,6 +62,11 @@ Two levels:
 - Low-level: `g4f_app` + `g4f_window` + `g4f_renderer`
 - High-level: `g4f_ctx` + `g4f_frame_begin/end` (recommended for most apps)
 
+## UI (menus/panels)
+Immediate-mode UI helper (no editor, all in code):
+- Header: `engine/include/g4f/g4f_ui.h`
+- Typical flow per-frame: `g4f_ui_begin` → `g4f_ui_layout_begin` → widgets → `g4f_ui_end`
+
 ## 3D Quickstart (D3D11 bring-up)
 Minimal 3D loop (no asset files; shaders/geometry are embedded/generated):
 ```cpp

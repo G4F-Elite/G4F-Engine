@@ -46,8 +46,9 @@ set "ENGINE_OBJ=%OBJ%\engine"
 %CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_ctx.cpp -o "%ENGINE_OBJ%\g4f_ctx.o" || exit /b 1
 %CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_d3d11_gfx.cpp -o "%ENGINE_OBJ%\g4f_d3d11_gfx.o" || exit /b 1
 %CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_ctx3d.cpp -o "%ENGINE_OBJ%\g4f_ctx3d.o" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_ui.cpp -o "%ENGINE_OBJ%\g4f_ui.o" || exit /b 1
 
-%AR% rcs "%LIB%\libg4f.a" "%ENGINE_OBJ%\g4f_utf8_win32.o" "%ENGINE_OBJ%\g4f_keycodes_win32.o" "%ENGINE_OBJ%\g4f_win32_window.o" "%ENGINE_OBJ%\g4f_d2d_renderer.o" "%ENGINE_OBJ%\g4f_ctx.o" "%ENGINE_OBJ%\g4f_d3d11_gfx.o" "%ENGINE_OBJ%\g4f_ctx3d.o" || exit /b 1
+%AR% rcs "%LIB%\libg4f.a" "%ENGINE_OBJ%\g4f_utf8_win32.o" "%ENGINE_OBJ%\g4f_keycodes_win32.o" "%ENGINE_OBJ%\g4f_win32_window.o" "%ENGINE_OBJ%\g4f_d2d_renderer.o" "%ENGINE_OBJ%\g4f_ctx.o" "%ENGINE_OBJ%\g4f_d3d11_gfx.o" "%ENGINE_OBJ%\g4f_ctx3d.o" "%ENGINE_OBJ%\g4f_ui.o" || exit /b 1
 
 echo === Build: samples ===
 %CXX% %CXXFLAGS% %INC_ENGINE% samples\hello2d\main.cpp -L"%LIB%" -lg4f %LD_ENGINE% -o "%BIN%\hello2d.exe" || exit /b 1
@@ -56,9 +57,11 @@ echo === Build: samples ===
 
 echo === Build: engine tests ===
 %CXX% %CXXFLAGS% %INC_ENGINE% tests\engine_keycodes_tests.cpp -o "%BIN%\engine_keycodes_tests.exe" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\ui_layout_tests.cpp -o "%BIN%\ui_layout_tests.exe" || exit /b 1
 
 echo === Run: engine tests ===
 "%BIN%\engine_keycodes_tests.exe" || exit /b 1
+"%BIN%\ui_layout_tests.exe" || exit /b 1
 
 echo === Build: Backrooms tests (no GLFW) ===
 for %%F in (Backrooms-master\tests\*.cpp) do (

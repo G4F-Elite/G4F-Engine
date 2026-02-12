@@ -2,6 +2,7 @@
 #include <cstring>
 
 #include "g4f/g4f.h"
+#include "g4f/g4f_ui.h"
 
 namespace {
 
@@ -27,6 +28,9 @@ int main() {
     g4f_ctx* ctx = g4f_ctx_create(&windowDesc);
     if (!ctx) return 1;
 
+    g4f_ui* ui = g4f_ui_create();
+    if (!ui) { g4f_ctx_destroy(ctx); return 1; }
+
     int selected = 0;
     bool running = true;
     while (running && g4f_ctx_poll(ctx)) {
@@ -40,34 +44,48 @@ int main() {
             if (std::strcmp(kItems[selected].label, "QUIT") == 0) running = false;
         }
 
+        g4f_frame_begin(ctx, g4f_rgba_u32(10, 10, 12, 255));
         int w = 0, h = 0;
         g4f_window_get_size(window, &w, &h);
 
-        g4f_frame_begin(ctx, g4f_rgba_u32(10, 10, 12, 255));
+        g4f_ui_begin(ui, renderer, window);
+        g4f_ui_layout_begin(ui, g4f_ui_layout{
+            .bounds = g4f_rect_f{64, 48, 520, 420},
+            .padding = 18.0f,
+            .spacing = 12.0f,
+            .itemW = 420.0f,
+            .defaultItemH = 44.0f,
+        });
 
-        g4f_draw_text(renderer, "BACKROOMS: VOID SHIFT", 64, 54, 34.0f, g4f_rgba_u32(245, 230, 120, 255));
-        g4f_draw_text(renderer, "menu smoke test (2D-only)", 66, 92, 16.0f, g4f_rgba_u32(190, 190, 205, 255));
+        g4f_ui_label(ui, "BACKROOMS: VOID SHIFT", 34.0f);
+        g4f_ui_label(ui, "menu smoke test (UI layer)", 16.0f);
+        g4f_ui_layout_spacer(ui, 10.0f);
 
-        const float baseX = 80.0f;
-        float y = 160.0f;
         for (int i = 0; i < (int)(sizeof(kItems) / sizeof(kItems[0])); i++) {
-            bool isSel = (i == selected);
-            uint32_t bg = isSel ? g4f_rgba_u32(40, 60, 120, 255) : g4f_rgba_u32(22, 22, 28, 255);
-            uint32_t fg = isSel ? g4f_rgba_u32(255, 255, 255, 255) : g4f_rgba_u32(200, 200, 210, 255);
-            g4f_draw_rect(renderer, g4f_rect_f{baseX, y, 420, 44}, bg);
-            g4f_draw_rect_outline(renderer, g4f_rect_f{baseX, y, 420, 44}, 1.5f, g4f_rgba_u32(70, 70, 90, 255));
-            g4f_draw_text(renderer, kItems[i].label, baseX + 16.0f, y + 10.0f, 18.0f, fg);
-            y += 56.0f;
+            g4f_ui_push_id(ui, kItems[i].label);
+            int clicked = g4f_ui_button(ui, kItems[i].label);
+            g4f_ui_pop_id(ui);
+            if (clicked) selected = i;
         }
 
+        g4f_ui_layout_spacer(ui, 8.0f);
+        int chk = (selected == 1) ? 1 : 0;
+        g4f_ui_checkbox(ui, "dummy checkbox (state not persisted)", &chk);
+
+        float vol = 0.65f;
+        g4f_ui_slider_float(ui, "dummy slider", &vol, 0.0f, 1.0f);
+
+        g4f_ui_end(ui);
+
         char help[256];
-        std::snprintf(help, sizeof(help), "UP/DOWN: select   ENTER/SPACE: confirm   ESC: exit   Mouse: %.0f,%.0f",
-                      g4f_mouse_x(window), g4f_mouse_y(window));
+        std::snprintf(help, sizeof(help), "ESC: exit   Mouse: %.0f,%.0f   Wheel: %.2f",
+                      g4f_mouse_x(window), g4f_mouse_y(window), g4f_mouse_wheel_delta(window));
         g4f_draw_text(renderer, help, 64, (float)h - 40.0f, 14.0f, g4f_rgba_u32(160, 160, 180, 255));
 
         g4f_frame_end(ctx);
     }
 
+    g4f_ui_destroy(ui);
     g4f_ctx_destroy(ctx);
     return 0;
 }
