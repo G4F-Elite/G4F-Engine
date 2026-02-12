@@ -33,6 +33,10 @@ Use `build.bat` at repo root:
 
 The build expects `g++` from **mingw-w64 x86_64** to be available in `PATH`.
 
+Outputs:
+- `out/bin/*.exe` — samples + tests
+- `out/lib/libg4f.a` — engine static library
+
 ## Public API (high level)
 The engine is “app-callback” oriented:
 - create a window
@@ -56,3 +60,8 @@ The engine exposes key codes in a GLFW-like integer space for ergonomic porting 
 ## Current status
 See `Agents.md` for the development plan, milestones, and “what to implement next”.
 
+## Backrooms validation (no GLFW dependency)
+`Backrooms-master/` is treated as a vendored reference project.
+`build.bat` compiles and runs `Backrooms-master/tests/*.cpp` using header-only shims from `compat/include`:
+- `compat/include/GLFW/glfw3.h` — keycode + API declarations (no library)
+- `compat/include/glad/glad.h` — OpenGL type/prototype declarations (no loader)
