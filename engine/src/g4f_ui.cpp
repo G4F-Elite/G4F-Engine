@@ -59,12 +59,19 @@ struct g4f_ui {
     uint64_t hot = 0;
     uint64_t active = 0;
     uint64_t lastActive = 0;
+    uint64_t focus = 0;
 
     float mouseX = 0.0f;
     float mouseY = 0.0f;
     float wheelDelta = 0.0f;
     int mouseDown = 0;
     int mousePressed = 0;
+
+    int navDir = 0;      // -1 up, +1 down
+    int navActivate = 0; // enter/space
+    int navLeft = 0;
+    int navRight = 0;
+    std::vector<uint64_t> navOrder;
 
     struct ScrollState {
         uint64_t id;
@@ -118,6 +125,22 @@ void g4f_ui_begin(g4f_ui* ui, g4f_renderer* renderer, const g4f_window* window) 
     ui->mouseDown = window ? g4f_mouse_down(window, G4F_MOUSE_BUTTON_LEFT) : 0;
     ui->mousePressed = window ? g4f_mouse_pressed(window, G4F_MOUSE_BUTTON_LEFT) : 0;
 
+    ui->navDir = 0;
+    ui->navActivate = 0;
+    ui->navLeft = 0;
+    ui->navRight = 0;
+    ui->navOrder.clear();
+
+    if (window) {
+        int up = g4f_key_pressed(window, G4F_KEY_UP) || g4f_key_pressed(window, G4F_KEY_W);
+        int down = g4f_key_pressed(window, G4F_KEY_DOWN) || g4f_key_pressed(window, G4F_KEY_S);
+        if (up && !down) ui->navDir = -1;
+        if (down && !up) ui->navDir = +1;
+        ui->navActivate = g4f_key_pressed(window, G4F_KEY_ENTER) || g4f_key_pressed(window, G4F_KEY_SPACE);
+        ui->navLeft = g4f_key_pressed(window, G4F_KEY_LEFT) || g4f_key_pressed(window, G4F_KEY_A);
+        ui->navRight = g4f_key_pressed(window, G4F_KEY_RIGHT) || g4f_key_pressed(window, G4F_KEY_D);
+    }
+
     ui->hot = 0;
     ui->lastActive = ui->active;
     if (!ui->mouseDown) ui->active = 0;
@@ -125,6 +148,21 @@ void g4f_ui_begin(g4f_ui* ui, g4f_renderer* renderer, const g4f_window* window) 
 
 void g4f_ui_end(g4f_ui* ui) {
     if (!ui) return;
+
+    // Apply keyboard navigation after all widgets registered.
+    if (!ui->navOrder.empty()) {
+        if (ui->focus == 0) ui->focus = ui->navOrder.front();
+        if (ui->navDir != 0) {
+            int n = (int)ui->navOrder.size();
+            int idx = 0;
+            for (int i = 0; i < n; i++) {
+                if (ui->navOrder[(size_t)i] == ui->focus) { idx = i; break; }
+            }
+            int next = (idx + ui->navDir + n) % n;
+            ui->focus = ui->navOrder[(size_t)next];
+        }
+    }
+
     ui->renderer = nullptr;
     ui->window = nullptr;
 }
@@ -176,22 +214,28 @@ static g4f_ui::ScrollState* uiFindOrCreateScroll(g4f_ui* ui, uint64_t id) {
     return &ui->scrollStates.back();
 }
 
-static void uiDrawItemBg(g4f_ui* ui, g4f_rect_f r, bool hovered, bool active) {
+static void uiDrawItemBg(g4f_ui* ui, g4f_rect_f r, bool hovered, bool active, bool focused) {
     uint32_t bg = ui->theme.itemBg;
     if (active) bg = ui->theme.itemActive;
     else if (hovered) bg = ui->theme.itemHover;
     g4f_draw_round_rect(ui->renderer, r, 10.0f, bg);
-    g4f_draw_round_rect_outline(ui->renderer, r, 10.0f, 1.5f, ui->theme.panelBorder);
+    uint32_t border = focused ? ui->theme.accent : ui->theme.panelBorder;
+    g4f_draw_round_rect_outline(ui->renderer, r, 10.0f, 1.5f, border);
 }
 
 static int uiItemBehavior(g4f_ui* ui, uint64_t id, g4f_rect_f r) {
     int hovered = pointInRect(ui->mouseX, ui->mouseY, r);
     if (hovered) ui->hot = id;
-    if (hovered && ui->mousePressed) ui->active = id;
+    if (hovered && ui->mousePressed) { ui->active = id; ui->focus = id; }
 
     int clicked = 0;
     if (!ui->mouseDown && ui->lastActive == id && hovered) clicked = 1;
     return clicked;
+}
+
+static void uiRegisterFocusable(g4f_ui* ui, uint64_t id) {
+    ui->navOrder.push_back(id);
+    if (ui->focus == 0) ui->focus = id;
 }
 
 int g4f_ui_label(g4f_ui* ui, const char* text_utf8, float size_px) {
@@ -267,11 +311,14 @@ int g4f_ui_button(g4f_ui* ui, const char* label_utf8) {
     if (!ui || !ui->renderer || !label_utf8) return 0;
     g4f_rect_f r = g4f_ui_layout_next(ui, 0.0f);
     uint64_t id = g4f_ui_make_id(ui, label_utf8);
+    uiRegisterFocusable(ui, id);
     int clicked = uiItemBehavior(ui, id, r);
     bool hovered = ui->hot == id;
     bool active = ui->active == id && ui->mouseDown;
-    uiDrawItemBg(ui, r, hovered, active);
+    bool focused = ui->focus == id;
+    uiDrawItemBg(ui, r, hovered, active, focused);
     g4f_draw_text(ui->renderer, label_utf8, r.x + 14.0f, r.y + 10.0f, 18.0f, ui->theme.text);
+    if (focused && ui->navActivate) clicked = 1;
     return clicked;
 }
 
@@ -279,10 +326,12 @@ int g4f_ui_checkbox(g4f_ui* ui, const char* label_utf8, int* value) {
     if (!ui || !ui->renderer || !label_utf8 || !value) return 0;
     g4f_rect_f r = g4f_ui_layout_next(ui, 0.0f);
     uint64_t id = g4f_ui_make_id(ui, label_utf8);
+    uiRegisterFocusable(ui, id);
     int clicked = uiItemBehavior(ui, id, r);
     bool hovered = ui->hot == id;
     bool active = ui->active == id && ui->mouseDown;
-    uiDrawItemBg(ui, r, hovered, active);
+    bool focused = ui->focus == id;
+    uiDrawItemBg(ui, r, hovered, active, focused);
 
     g4f_rect_f box{r.x + 14.0f, r.y + 10.0f, 22.0f, 22.0f};
     g4f_draw_round_rect(ui->renderer, box, 6.0f, blendAlpha(ui->theme.panelBg, 255));
@@ -293,6 +342,7 @@ int g4f_ui_checkbox(g4f_ui* ui, const char* label_utf8, int* value) {
 
     g4f_draw_text(ui->renderer, label_utf8, r.x + 48.0f, r.y + 10.0f, 18.0f, ui->theme.text);
 
+    if (focused && ui->navActivate) clicked = 1;
     if (clicked) {
         *value = (*value) ? 0 : 1;
         return 1;
@@ -304,14 +354,16 @@ int g4f_ui_slider_float(g4f_ui* ui, const char* label_utf8, float* value, float 
     if (!ui || !ui->renderer || !label_utf8 || !value) return 0;
     g4f_rect_f r = g4f_ui_layout_next(ui, 0.0f);
     uint64_t id = g4f_ui_make_id(ui, label_utf8);
+    uiRegisterFocusable(ui, id);
 
     int hovered = pointInRect(ui->mouseX, ui->mouseY, r);
     if (hovered) ui->hot = id;
-    if (hovered && ui->mousePressed) ui->active = id;
+    if (hovered && ui->mousePressed) { ui->active = id; ui->focus = id; }
 
     bool isActive = ui->active == id && ui->mouseDown;
     bool isHovered = ui->hot == id;
-    uiDrawItemBg(ui, r, isHovered, isActive);
+    bool focused = ui->focus == id;
+    uiDrawItemBg(ui, r, isHovered, isActive, focused);
 
     g4f_rect_f track{r.x + 14.0f, r.y + 32.0f, r.w - 28.0f, 6.0f};
     g4f_draw_round_rect(ui->renderer, track, 3.0f, blendAlpha(ui->theme.panelBorder, 255));
@@ -327,6 +379,16 @@ int g4f_ui_slider_float(g4f_ui* ui, const char* label_utf8, float* value, float 
             *value = newValue;
             t = px;
         }
+    }
+
+    if (focused && maxValue > minValue) {
+        float step = 0.05f;
+        if (ui->window) {
+            int shift = g4f_key_down(ui->window, G4F_KEY_LEFT_SHIFT) || g4f_key_down(ui->window, G4F_KEY_RIGHT_SHIFT);
+            if (shift) step = 0.01f;
+        }
+        if (ui->navLeft) *value = clampFloat(*value - step * (maxValue - minValue), minValue, maxValue);
+        if (ui->navRight) *value = clampFloat(*value + step * (maxValue - minValue), minValue, maxValue);
     }
 
     g4f_rect_f fill{track.x, track.y, track.w * t, track.h};
