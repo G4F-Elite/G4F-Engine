@@ -70,7 +70,7 @@ echo === Run: engine tests ===
 "%BIN%\math_tests.exe" || exit /b 1
 
 if exist "Backrooms-master\tests" (
-  echo === Build: Backrooms tests (no GLFW) ===
+  echo === Build: Backrooms tests [no GLFW] ===
   for %%F in (Backrooms-master\tests\*.cpp) do (
     set "NAME=%%~nF"
     echo [Backrooms] %%~nxF
@@ -83,7 +83,7 @@ if exist "Backrooms-master\tests" (
     "%%E" || exit /b 1
   )
 ) else (
-  echo === Skip: Backrooms tests (Backrooms-master not found) ===
+  echo === Skip: Backrooms tests [Backrooms-master not found] ===
 )
 
 echo === OK ===
