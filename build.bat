@@ -33,7 +33,7 @@ set "INC_ENGINE=-Iengine\include"
 set "INC_COMPAT=-Icompat\include"
 
 set "LD_ENGINE=-lole32 -luuid -ld2d1 -ldwrite -lwindowscodecs -lgdi32 -luser32"
-set "LD_ENGINE_3D=-lole32 -luuid -lgdi32 -luser32 -ld3d11 -ldxgi -ld3dcompiler_47"
+set "LD_ENGINE_3D=-lole32 -luuid -lgdi32 -luser32 -ld3d11 -ldxgi -ld3dcompiler_47 -ld2d1 -ldwrite -lwindowscodecs"
 set "LD_BACKROOMS=-lws2_32 -lwinmm"
 
 echo === Build: engine (static lib) ===

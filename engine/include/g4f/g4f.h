@@ -230,13 +230,20 @@ void g4f_renderer_clear(g4f_renderer* renderer, uint32_t rgba);
 
 void g4f_draw_rect(g4f_renderer* renderer, g4f_rect_f rect, uint32_t rgba);
 void g4f_draw_rect_outline(g4f_renderer* renderer, g4f_rect_f rect, float thickness, uint32_t rgba);
+void g4f_draw_round_rect(g4f_renderer* renderer, g4f_rect_f rect, float radius, uint32_t rgba);
+void g4f_draw_round_rect_outline(g4f_renderer* renderer, g4f_rect_f rect, float radius, float thickness, uint32_t rgba);
 void g4f_draw_line(g4f_renderer* renderer, float x1, float y1, float x2, float y2, float thickness, uint32_t rgba);
 void g4f_draw_text(g4f_renderer* renderer, const char* text_utf8, float x, float y, float size_px, uint32_t rgba);
+void g4f_measure_text(g4f_renderer* renderer, const char* text_utf8, float size_px, float* out_w, float* out_h);
 
 // Bitmaps.
 g4f_bitmap* g4f_bitmap_load(g4f_renderer* renderer, const char* path_utf8);
 void g4f_bitmap_destroy(g4f_bitmap* bitmap);
 void g4f_draw_bitmap(g4f_renderer* renderer, const g4f_bitmap* bitmap, g4f_rect_f dst, float opacity);
+
+// Create a UI renderer that draws into the current D3D11 swapchain backbuffer.
+// Use for 2D panels/menus overlay in 3D apps.
+g4f_renderer* g4f_renderer_create_for_gfx(g4f_gfx* gfx);
 
 #ifdef __cplusplus
 } // extern "C"

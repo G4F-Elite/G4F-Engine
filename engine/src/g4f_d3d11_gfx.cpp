@@ -1,4 +1,4 @@
-#include "g4f_platform_win32.h"
+#include "g4f_platform_d3d11.h"
 
 #include "../include/g4f/g4f.h"
 
@@ -9,8 +9,6 @@
 #define NOMINMAX
 #endif
 
-#include <d3d11.h>
-#include <dxgi.h>
 #include <d3dcompiler.h>
 
 #include <cmath>
@@ -137,29 +135,6 @@ struct Vertex {
 };
 
 } // namespace
-
-struct g4f_gfx {
-    g4f_window* window = nullptr;
-    int cachedW = 0;
-    int cachedH = 0;
-
-    IDXGISwapChain* swapChain = nullptr;
-    ID3D11Device* device = nullptr;
-    ID3D11DeviceContext* ctx = nullptr;
-    ID3D11RenderTargetView* rtv = nullptr;
-    ID3D11Texture2D* depthTex = nullptr;
-    ID3D11DepthStencilView* dsv = nullptr;
-
-    ID3D11VertexShader* vs = nullptr;
-    ID3D11PixelShader* ps = nullptr;
-    ID3D11InputLayout* inputLayout = nullptr;
-
-    ID3D11Buffer* vb = nullptr;
-    ID3D11Buffer* ib = nullptr;
-    ID3D11Buffer* cbMvp = nullptr;
-
-    UINT indexCount = 0;
-};
 
 static bool gfxCreateTargets(g4f_gfx* gfx, int w, int h) {
     if (!gfx || !gfx->swapChain || !gfx->device) return false;
