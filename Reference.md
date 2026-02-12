@@ -97,6 +97,9 @@ Immediate-mode UI helper (no editor, all in code):
 ## Input notes
 - Text input comes from `WM_CHAR` and is available via `g4f_text_input_count` / `g4f_text_input_codepoint`.
 
+## Window helpers
+- Title: `g4f_window_set_title`
+
 ## Text + clipping helpers
 - Wrapped text: `g4f_draw_text_wrapped`, `g4f_measure_text_wrapped`
 - Clip stack: `g4f_clip_push`, `g4f_clip_pop`
@@ -137,6 +140,7 @@ This engine intentionally avoids loading textures/models from disk for 3D. Inste
 Helpers:
 - Swapchain size: `g4f_gfx_get_size`, `g4f_gfx_aspect`
 - Lighting: `g4f_gfx_set_light_dir`, `g4f_gfx_set_light_colors`
+- Present: `g4f_gfx_set_vsync`
 
 ### 3D + UI overlay
 For menus/panels/HUD on top of 3D, create a UI renderer bound to the swapchain:
