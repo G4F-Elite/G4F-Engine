@@ -18,6 +18,7 @@ int main() {
 
     g4f_gfx* gfx = g4f_ctx3d_gfx(ctx);
     g4f_gfx_mesh* cube = g4f_gfx_mesh_create_cube_p3n3uv2(gfx, 1.0f);
+    g4f_gfx_mesh* floorMesh = g4f_gfx_mesh_create_plane_xz_p3n3uv2(gfx, 12.0f, 6.0f);
     g4f_gfx_texture* checker = g4f_gfx_texture_create_checker_rgba8(
         gfx,
         64,
@@ -35,11 +36,12 @@ int main() {
     mdesc.cullMode = 0;
     g4f_gfx_material* mtlUnlit = g4f_gfx_material_create_unlit(gfx, &mdesc);
     g4f_gfx_material* mtlLit = g4f_gfx_material_create_lit(gfx, &mdesc);
-    if (!cube || !checker || !mtlUnlit || !mtlLit) {
+    if (!cube || !floorMesh || !checker || !mtlUnlit || !mtlLit) {
         std::fprintf(stderr, "Failed to create 3D resources\n");
         g4f_gfx_material_destroy(mtlUnlit);
         g4f_gfx_material_destroy(mtlLit);
         g4f_gfx_texture_destroy(checker);
+        g4f_gfx_mesh_destroy(floorMesh);
         g4f_gfx_mesh_destroy(cube);
         g4f_ctx3d_destroy(ctx);
         return 1;
@@ -51,6 +53,7 @@ int main() {
         g4f_gfx_material_destroy(mtlUnlit);
         g4f_gfx_material_destroy(mtlLit);
         g4f_gfx_texture_destroy(checker);
+        g4f_gfx_mesh_destroy(floorMesh);
         g4f_gfx_mesh_destroy(cube);
         g4f_ctx3d_destroy(ctx);
         return 1;
@@ -107,6 +110,13 @@ int main() {
         // Light travels in this direction (world space).
         g4f_gfx_set_light_dir(gfx, -0.4f, -1.0f, -0.2f);
         g4f_gfx_set_light_colors(gfx, g4f_rgba_u32(255, 250, 240, 255), g4f_rgba_u32(40, 50, 70, 255));
+
+        g4f_mat4 floorModel = g4f_mat4_translation(0.0f, -1.3f, 0.0f);
+        g4f_mat4 floorMvp = g4f_mat4_mul(g4f_mat4_mul(floorModel, view), proj);
+        g4f_gfx_material_set_cull(mtlLit, 0);
+        g4f_gfx_material_set_depth(mtlLit, 1, 1);
+        g4f_gfx_draw_mesh_xform(gfx, floorMesh, mtlLit, &floorModel, &floorMvp);
+
         g4f_gfx_draw_mesh_xform(gfx, cube, lit ? mtlLit : mtlUnlit, &rot, &mvp);
 
         g4f_renderer_begin(ui);
@@ -145,6 +155,7 @@ int main() {
     g4f_gfx_material_destroy(mtlUnlit);
     g4f_gfx_material_destroy(mtlLit);
     g4f_gfx_texture_destroy(checker);
+    g4f_gfx_mesh_destroy(floorMesh);
     g4f_gfx_mesh_destroy(cube);
     g4f_ctx3d_destroy(ctx);
     return 0;
