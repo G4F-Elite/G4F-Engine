@@ -2,6 +2,7 @@
 #include <vector>
 
 #include "g4f/g4f.h"
+#include "g4f/g4f_camera.h"
 #include "g4f/g4f_ui.h"
 
 static g4f_gfx_mesh* createUvCube(g4f_gfx* gfx) {
@@ -90,9 +91,16 @@ int main() {
         return 1;
     }
 
+    g4f_camera_fps cam = g4f_camera_fps_default();
+
     while (g4f_ctx3d_poll(ctx)) {
         g4f_window* window = g4f_ctx3d_window(ctx);
         if (g4f_key_pressed(window, G4F_KEY_ESCAPE)) g4f_window_request_close(window);
+
+        if (g4f_mouse_pressed(window, G4F_MOUSE_BUTTON_RIGHT)) g4f_window_set_cursor_captured(window, 1);
+        if (!g4f_mouse_down(window, G4F_MOUSE_BUTTON_RIGHT)) g4f_window_set_cursor_captured(window, 0);
+
+        g4f_camera_fps_update(&cam, window, g4f_ctx3d_dt(ctx));
 
         g4f_frame3d_begin(ctx, g4f_rgba_u32(14, 14, 18, 255));
 
@@ -100,8 +108,8 @@ int main() {
         int ww = 0, wh = 0;
         g4f_window_get_size(window, &ww, &wh);
         float aspect = (wh > 0) ? ((float)ww / (float)wh) : 1.0f;
-        g4f_mat4 proj = g4f_mat4_perspective(70.0f * 3.14159265f / 180.0f, aspect, 0.1f, 100.0f);
-        g4f_mat4 view = g4f_mat4_translation(0.0f, 0.0f, 4.0f);
+        g4f_mat4 proj = g4f_camera_fps_proj(&cam, aspect);
+        g4f_mat4 view = g4f_camera_fps_view(&cam);
         g4f_mat4 rot = g4f_mat4_mul(g4f_mat4_rotation_y(t * 0.8f), g4f_mat4_rotation_x(t * 0.5f));
         g4f_mat4 mvp = g4f_mat4_mul(g4f_mat4_mul(rot, view), proj);
         g4f_gfx_draw_mesh(gfx, cube, mtl, &mvp);
@@ -109,7 +117,7 @@ int main() {
         g4f_renderer_begin(ui);
         g4f_ui_begin(uiState, ui, window);
         g4f_ui_panel_begin_scroll(uiState, "G4F SPIN CUBE", g4f_rect_f{24, 24, 420, 240});
-        g4f_ui_text_wrapped(uiState, "D3D11 render + Direct2D UI overlay.\nWheel: scroll. UP/DOWN or W/S: focus. TAB: cycle focus. ENTER/SPACE: activate. LEFT/RIGHT or A/D: slider.", 16.0f);
+        g4f_ui_text_wrapped(uiState, "D3D11 render + Direct2D UI overlay.\nHold RMB: capture mouse + FPS camera (WASD, Space/Ctrl). Wheel: scroll. UP/DOWN or W/S: focus. TAB: cycle focus. ENTER/SPACE: activate. LEFT/RIGHT or A/D: slider.", 16.0f);
         g4f_ui_layout_spacer(uiState, 6.0f);
         g4f_ui_separator(uiState);
         int show = 0;
