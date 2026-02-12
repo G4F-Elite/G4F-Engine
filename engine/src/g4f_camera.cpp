@@ -51,11 +51,13 @@ void g4f_camera_fps_update(g4f_camera_fps* cam, const g4f_window* window, float 
     if (dtSeconds < 0.0f) dtSeconds = 0.0f;
     if (dtSeconds > 0.25f) dtSeconds = 0.25f;
 
-    float mx = g4f_mouse_dx(window);
-    float my = g4f_mouse_dy(window);
-    cam->yawRadians += mx * cam->lookSensitivity;
-    cam->pitchRadians += my * cam->lookSensitivity;
-    cam->pitchRadians = clampFloat(cam->pitchRadians, -1.55f, 1.55f);
+    if (g4f_window_cursor_captured(window)) {
+        float mx = g4f_mouse_dx(window);
+        float my = g4f_mouse_dy(window);
+        cam->yawRadians += mx * cam->lookSensitivity;
+        cam->pitchRadians += my * cam->lookSensitivity;
+        cam->pitchRadians = clampFloat(cam->pitchRadians, -1.55f, 1.55f);
+    }
 
     g4f_vec3 forward = fpsForward(cam->yawRadians, cam->pitchRadians);
     g4f_vec3 worldUp{0.0f, 1.0f, 0.0f};
@@ -92,4 +94,3 @@ g4f_mat4 g4f_camera_fps_proj(const g4f_camera_fps* cam, float aspect) {
     float fov = cam ? cam->fovYRadians : (70.0f * 3.14159265f / 180.0f);
     return g4f_mat4_perspective(fov, a, 0.1f, 100.0f);
 }
-

@@ -406,3 +406,7 @@ void g4f_window_set_cursor_captured(g4f_window* window, int captured) {
         window->state.prevMouseY = window->state.mouseY;
     }
 }
+
+int g4f_window_cursor_captured(const g4f_window* window) {
+    return (window && window->state.cursorCaptured) ? 1 : 0;
+}
