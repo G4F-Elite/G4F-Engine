@@ -72,6 +72,7 @@ Immediate-mode UI helper (no editor, all in code):
 - Persistent UI state (optional): `g4f_ui_store_*` and keyed widgets `g4f_ui_checkbox_k` / `g4f_ui_slider_float_k`
 - Text input: `g4f_ui_input_text_k` (uses per-frame OS text input)
 - Clipboard shortcuts in text input: `Ctrl+C` copy, `Ctrl+X` cut, `Ctrl+V` paste, `Enter` to finish editing
+- Editing: `Ctrl+A` select all, `Shift+Left/Right` select, `Home/End`, `Ctrl+Left/Right` jump by word
 
 ## Input notes
 - Text input comes from `WM_CHAR` and is available via `g4f_text_input_count` / `g4f_text_input_codepoint`.
