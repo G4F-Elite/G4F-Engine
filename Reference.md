@@ -6,11 +6,12 @@ Lightweight engine for writing games in C/C++ on **Windows x64** with a **simple
 Non-goals (intentionally **not** supported):
 - Cross-platform support
 - Editor GUI/TUI tooling (dev flow is text-only)
-- 3D pipeline, 3D model importers
+- Asset pipelines that require external files (models/textures)
 
-Notes on “textures”:
-- The engine supports **2D bitmaps** (sprites/UI) as a practical requirement for menus and HUD.
-- It does **not** provide a 3D texture/material system.
+Assets and materials policy:
+- 3D focus is planned/expected, but **not from files**: no loading `.fbx/.obj`, no “drop texture files into a folder”.
+- Any meshes/materials/textures are expected to be **generated in code** (procedural, hardcoded, embedded bytes, etc.).
+- 2D supports **bitmaps for UI** (icons/panels/menus) as a practical requirement.
 
 ## Tech choices (Win64-only)
 - Window + input: **Win32** (`CreateWindowEx`, message loop)
@@ -37,11 +38,29 @@ Outputs:
 - `out/bin/*.exe` — samples + tests
 - `out/lib/libg4f.a` — engine static library
 
+## Quickstart (simplest usage)
+Minimal app using the high-level context:
+```cpp
+#include "g4f/g4f.h"
+int main(){
+  g4f_window_desc wd{"My Game", 1280, 720, 1};
+  g4f_ctx* ctx = g4f_ctx_create(&wd);
+  while(g4f_ctx_poll(ctx)){
+    g4f_window* win = g4f_ctx_window(ctx);
+    g4f_renderer* r = g4f_ctx_renderer(ctx);
+    if(g4f_key_pressed(win, G4F_KEY_ESCAPE)) g4f_window_request_close(win);
+    g4f_frame_begin(ctx, g4f_rgba_u32(18,18,22,255));
+    g4f_draw_text(r, "Hello", 40, 40, 24, g4f_rgba_u32(255,255,255,255));
+    g4f_frame_end(ctx);
+  }
+  g4f_ctx_destroy(ctx);
+}
+```
+
 ## Public API (high level)
-The engine is “app-callback” oriented:
-- create a window
-- run a loop
-- provide callbacks for init/update/render/shutdown
+Two levels:
+- Low-level: `g4f_app` + `g4f_window` + `g4f_renderer`
+- High-level: `g4f_ctx` + `g4f_frame_begin/end` (recommended for most apps)
 
 2D renderer focuses on:
 - solid rects

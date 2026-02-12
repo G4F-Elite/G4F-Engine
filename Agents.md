@@ -6,8 +6,9 @@ If a future change request arrives without a similarly detailed plan, start by r
 ## Principles
 - Win64-only. Prefer Win32/Direct2D/DirectWrite/WIC over cross-platform deps.
 - C-first API (easy to consume), with optional C++ sugar in samples only.
-- “2D-first”: menus/HUD/debug overlays are the priority.
+- “3D-first” long-term, with “2D-excellent” for menus/HUD/debug overlays.
 - Avoid heavyweight dependencies; keep the build to `build.bat` + `g++`.
+  - Prefer “generate in code” over asset files.
 
 ## Git workflow
 - This repo must be a git repository.
@@ -39,6 +40,12 @@ If a future change request arrives without a similarly detailed plan, start by r
 ### M4 — Backrooms smoke validation
 - Build and run `Backrooms-master/tests/*.cpp` as a smoke suite
 - Keep a GLFW/glad header shim (no actual GLFW dependency)
+
+### M5 — 3D foundation (planned)
+- D3D11 rendering backend (Win64)
+- Procedural meshes (no model files)
+- Code-generated materials (no texture files)
+- Keep 2D UI renderer for menus/HUD
 
 ## Build outputs
 - `out/lib/libg4f.a` — engine static library
