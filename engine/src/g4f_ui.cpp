@@ -73,6 +73,7 @@ struct g4f_ui {
     int navActivate = 0; // enter/space
     int navLeft = 0;
     int navRight = 0;
+    int navTabDir = 0; // -1 shift+tab, +1 tab
     std::vector<uint64_t> navOrder;
 
     std::unordered_map<uint64_t, int> storeInt;
@@ -140,6 +141,7 @@ void g4f_ui_begin(g4f_ui* ui, g4f_renderer* renderer, const g4f_window* window) 
     ui->navActivate = 0;
     ui->navLeft = 0;
     ui->navRight = 0;
+    ui->navTabDir = 0;
     ui->navOrder.clear();
 
     if (window) {
@@ -150,6 +152,12 @@ void g4f_ui_begin(g4f_ui* ui, g4f_renderer* renderer, const g4f_window* window) 
         ui->navActivate = g4f_key_pressed(window, G4F_KEY_ENTER) || g4f_key_pressed(window, G4F_KEY_SPACE);
         ui->navLeft = g4f_key_pressed(window, G4F_KEY_LEFT) || g4f_key_pressed(window, G4F_KEY_A);
         ui->navRight = g4f_key_pressed(window, G4F_KEY_RIGHT) || g4f_key_pressed(window, G4F_KEY_D);
+
+        int tab = g4f_key_pressed(window, G4F_KEY_TAB);
+        if (tab) {
+            int shift = g4f_key_down(window, G4F_KEY_LEFT_SHIFT) || g4f_key_down(window, G4F_KEY_RIGHT_SHIFT);
+            ui->navTabDir = shift ? -1 : +1;
+        }
     }
 
     ui->hot = 0;
@@ -178,6 +186,20 @@ void g4f_ui_end(g4f_ui* ui) {
                 int next = (idx + ui->navDir + n) % n;
                 ui->focus = ui->navOrder[(size_t)next];
             }
+        }
+
+        if (ui->navTabDir != 0) {
+            int n = (int)ui->navOrder.size();
+            int idx = -1;
+            for (int i = 0; i < n; i++) {
+                if (ui->navOrder[(size_t)i] == ui->focus) { idx = i; break; }
+            }
+            if (idx < 0) ui->focus = ui->navOrder.front();
+            else {
+                int next = (idx + ui->navTabDir + n) % n;
+                ui->focus = ui->navOrder[(size_t)next];
+            }
+            ui->textActive = 0;
         }
     }
 
