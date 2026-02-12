@@ -34,6 +34,7 @@ set "INC_COMPAT=-Icompat\include"
 
 set "LD_ENGINE=-lole32 -luuid -ld2d1 -ldwrite -lwindowscodecs -lgdi32 -luser32"
 set "LD_ENGINE_3D=-lole32 -luuid -lgdi32 -luser32 -ld3d11 -ldxgi -ld3dcompiler_47 -ld2d1 -ldwrite -lwindowscodecs"
+set "LD_ENGINE_ALL=%LD_ENGINE% %LD_ENGINE_3D%"
 set "LD_BACKROOMS=-lws2_32 -lwinmm"
 
 echo === Build: engine (static lib) ===
@@ -56,8 +57,8 @@ echo === Build: samples ===
 %CXX% %CXXFLAGS% %INC_ENGINE% samples\spin_cube\main.cpp -L"%LIB%" -lg4f %LD_ENGINE_3D% -o "%BIN%\spin_cube.exe" || exit /b 1
 
 echo === Build: engine tests ===
-%CXX% %CXXFLAGS% %INC_ENGINE% tests\engine_keycodes_tests.cpp -L"%LIB%" -lg4f -o "%BIN%\engine_keycodes_tests.exe" || exit /b 1
-%CXX% %CXXFLAGS% %INC_ENGINE% tests\ui_layout_tests.cpp -L"%LIB%" -lg4f -o "%BIN%\ui_layout_tests.exe" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\engine_keycodes_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\engine_keycodes_tests.exe" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\ui_layout_tests.cpp -L"%LIB%" -lg4f %LD_ENGINE_ALL% -o "%BIN%\ui_layout_tests.exe" || exit /b 1
 
 echo === Run: engine tests ===
 "%BIN%\engine_keycodes_tests.exe" || exit /b 1
