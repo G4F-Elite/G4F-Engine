@@ -76,6 +76,9 @@ struct g4f_ui {
 
     std::unordered_map<uint64_t, int> storeInt;
     std::unordered_map<uint64_t, float> storeFloat;
+    std::unordered_map<uint64_t, std::string> storeString;
+
+    uint64_t textActive = 0;
 
     struct ScrollState {
         uint64_t id;
@@ -107,6 +110,7 @@ g4f_ui* g4f_ui_create(void) {
     ui->scrollStates.reserve(8);
     ui->storeInt.reserve(64);
     ui->storeFloat.reserve(64);
+    ui->storeString.reserve(32);
     return ui;
 }
 
@@ -247,6 +251,45 @@ void g4f_ui_store_set_f(g4f_ui* ui, const char* key_utf8, float value) {
     if (!ui || !key_utf8) return;
     uint64_t id = g4f_ui_make_id(ui, key_utf8);
     ui->storeFloat[id] = value;
+}
+
+static std::string& uiStoreStringRef(g4f_ui* ui, const char* key_utf8, const char* defaultValue) {
+    uint64_t id = g4f_ui_make_id(ui, key_utf8);
+    auto it = ui->storeString.find(id);
+    if (it == ui->storeString.end()) {
+        auto [insertIt, inserted] = ui->storeString.emplace(id, defaultValue ? defaultValue : "");
+        return insertIt->second;
+    }
+    return it->second;
+}
+
+static void uiUtf8PopBack(std::string& s) {
+    if (s.empty()) return;
+    size_t i = s.size() - 1;
+    while (i > 0 && ((uint8_t)s[i] & 0xC0u) == 0x80u) i--;
+    s.erase(i);
+}
+
+static void uiUtf8AppendCodepoint(std::string& s, uint32_t cp) {
+    if (cp <= 0x7Fu) {
+        s.push_back((char)cp);
+        return;
+    }
+    if (cp <= 0x7FFu) {
+        s.push_back((char)(0xC0u | ((cp >> 6) & 0x1Fu)));
+        s.push_back((char)(0x80u | (cp & 0x3Fu)));
+        return;
+    }
+    if (cp <= 0xFFFFu) {
+        s.push_back((char)(0xE0u | ((cp >> 12) & 0x0Fu)));
+        s.push_back((char)(0x80u | ((cp >> 6) & 0x3Fu)));
+        s.push_back((char)(0x80u | (cp & 0x3Fu)));
+        return;
+    }
+    s.push_back((char)(0xF0u | ((cp >> 18) & 0x07u)));
+    s.push_back((char)(0x80u | ((cp >> 12) & 0x3Fu)));
+    s.push_back((char)(0x80u | ((cp >> 6) & 0x3Fu)));
+    s.push_back((char)(0x80u | (cp & 0x3Fu)));
 }
 
 static g4f_ui::ScrollState* uiFindOrCreateScroll(g4f_ui* ui, uint64_t id) {
@@ -466,6 +509,65 @@ int g4f_ui_slider_float_k(g4f_ui* ui, const char* label_utf8, const char* key_ut
     int changed = g4f_ui_slider_float(ui, label_utf8, &v, minValue, maxValue);
     if (changed) g4f_ui_store_set_f(ui, key_utf8, v);
     if (outValue) *outValue = v;
+    return changed;
+}
+
+int g4f_ui_input_text_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8, const char* placeholder_utf8, int maxBytes, char* out_utf8, int out_cap) {
+    if (out_utf8 && out_cap > 0) out_utf8[0] = '\0';
+    if (!ui || !ui->renderer || !label_utf8 || !key_utf8) return 0;
+    if (maxBytes < 1) maxBytes = 1;
+
+    std::string& value = uiStoreStringRef(ui, key_utf8, "");
+    if ((int)value.size() > maxBytes) value.resize((size_t)maxBytes);
+
+    g4f_rect_f r = g4f_ui_layout_next(ui, 0.0f);
+    uint64_t id = g4f_ui_make_id(ui, key_utf8);
+    uiRegisterFocusable(ui, id);
+
+    int clicked = uiItemBehavior(ui, id, r);
+    bool focused = ui->focus == id;
+    bool active = ui->textActive == id;
+    if (clicked) ui->textActive = id;
+    if (focused && ui->navActivate) ui->textActive = id;
+    if (!focused && ui->navActivate && ui->textActive == id) ui->textActive = 0;
+    if (ui->window && g4f_key_pressed(ui->window, G4F_KEY_ESCAPE) && ui->textActive == id) ui->textActive = 0;
+
+    bool hovered = ui->hot == id;
+    uiDrawItemBg(ui, r, hovered, ui->active == id && ui->mouseDown, focused || active);
+
+    // Label
+    g4f_draw_text(ui->renderer, label_utf8, r.x + 14.0f, r.y + 8.0f, 16.0f, ui->theme.text);
+
+    // Input box area
+    g4f_rect_f box{r.x + 14.0f, r.y + 28.0f, r.w - 28.0f, 14.0f};
+    g4f_draw_round_rect(ui->renderer, g4f_rect_f{box.x, box.y - 4.0f, box.w, 22.0f}, 8.0f, blendAlpha(ui->theme.panelBg, 255));
+    g4f_draw_round_rect_outline(ui->renderer, g4f_rect_f{box.x, box.y - 4.0f, box.w, 22.0f}, 8.0f, 1.5f, (active ? ui->theme.accent : ui->theme.panelBorder));
+
+    int changed = 0;
+    if (active && ui->window) {
+        if (g4f_key_pressed(ui->window, G4F_KEY_BACKSPACE) && !value.empty()) {
+            uiUtf8PopBack(value);
+            changed = 1;
+        }
+        int count = g4f_text_input_count(ui->window);
+        for (int i = 0; i < count; i++) {
+            uint32_t cp = g4f_text_input_codepoint(ui->window, i);
+            if (cp == '\r' || cp == '\n' || cp == '\t') continue;
+            if (cp < 32) continue;
+            std::string before = value;
+            uiUtf8AppendCodepoint(value, cp);
+            if ((int)value.size() > maxBytes) value = before;
+            else changed = 1;
+        }
+    }
+
+    const char* drawText = value.empty() ? (placeholder_utf8 ? placeholder_utf8 : "") : value.c_str();
+    uint32_t drawColor = value.empty() ? ui->theme.textMuted : ui->theme.text;
+    g4f_draw_text(ui->renderer, drawText, box.x + 6.0f, box.y - 2.0f, 16.0f, drawColor);
+
+    if (out_utf8 && out_cap > 0) {
+        std::snprintf(out_utf8, (size_t)out_cap, "%s", value.c_str());
+    }
     return changed;
 }
 

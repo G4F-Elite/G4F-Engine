@@ -67,6 +67,7 @@ void g4f_ui_separator(g4f_ui* ui);
 // Keyed widgets (values persist inside g4f_ui store).
 int g4f_ui_checkbox_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8, int defaultValue, int* outValue);
 int g4f_ui_slider_float_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8, float defaultValue, float minValue, float maxValue, float* outValue);
+int g4f_ui_input_text_k(g4f_ui* ui, const char* label_utf8, const char* key_utf8, const char* placeholder_utf8, int maxBytes, char* out_utf8, int out_cap);
 
 #ifdef __cplusplus
 } // extern "C"
