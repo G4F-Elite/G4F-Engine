@@ -1,0 +1,72 @@
+@echo off
+setlocal EnableExtensions EnableDelayedExpansion
+
+REM G4F-Engine build for Win64 MinGW-w64.
+
+set "CXX=g++"
+set "AR=ar"
+
+set "OUT=out"
+set "OBJ=%OUT%\obj"
+set "LIB=%OUT%\lib"
+set "BIN=%OUT%\bin"
+
+if "%1"=="clean" (
+  if exist "%OUT%" rmdir /s /q "%OUT%"
+  echo Cleaned "%OUT%".
+  exit /b 0
+)
+
+where %CXX% >nul 2>nul
+if errorlevel 1 (
+  echo ERROR: g++ not found in PATH.
+  exit /b 1
+)
+
+if not exist "%OBJ%\engine" mkdir "%OBJ%\engine"
+if not exist "%LIB%" mkdir "%LIB%"
+if not exist "%BIN%" mkdir "%BIN%"
+if not exist "%BIN%\backrooms-tests" mkdir "%BIN%\backrooms-tests"
+
+set "CXXFLAGS=-std=c++20 -O2 -g -Wall -Wextra -Wpedantic"
+set "INC_ENGINE=-Iengine\include"
+set "INC_COMPAT=-Icompat\include"
+
+set "LD_ENGINE=-lole32 -luuid -ld2d1 -ldwrite -lwindowscodecs -lgdi32 -luser32"
+set "LD_BACKROOMS=-lws2_32 -lwinmm"
+
+echo === Build: engine (static lib) ===
+set "ENGINE_OBJ=%OBJ%\engine"
+
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_utf8_win32.cpp -o "%ENGINE_OBJ%\g4f_utf8_win32.o" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_keycodes_win32.cpp -o "%ENGINE_OBJ%\g4f_keycodes_win32.o" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_win32_window.cpp -o "%ENGINE_OBJ%\g4f_win32_window.o" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% -c engine\src\g4f_d2d_renderer.cpp -o "%ENGINE_OBJ%\g4f_d2d_renderer.o" || exit /b 1
+
+%AR% rcs "%LIB%\libg4f.a" "%ENGINE_OBJ%\g4f_utf8_win32.o" "%ENGINE_OBJ%\g4f_keycodes_win32.o" "%ENGINE_OBJ%\g4f_win32_window.o" "%ENGINE_OBJ%\g4f_d2d_renderer.o" || exit /b 1
+
+echo === Build: samples ===
+%CXX% %CXXFLAGS% %INC_ENGINE% samples\hello2d\main.cpp -L"%LIB%" -lg4f %LD_ENGINE% -o "%BIN%\hello2d.exe" || exit /b 1
+%CXX% %CXXFLAGS% %INC_ENGINE% samples\backrooms_menu_smoke\main.cpp -L"%LIB%" -lg4f %LD_ENGINE% -o "%BIN%\backrooms_menu_smoke.exe" || exit /b 1
+
+echo === Build: engine tests ===
+%CXX% %CXXFLAGS% %INC_ENGINE% tests\engine_keycodes_tests.cpp -o "%BIN%\engine_keycodes_tests.exe" || exit /b 1
+
+echo === Run: engine tests ===
+"%BIN%\engine_keycodes_tests.exe" || exit /b 1
+
+echo === Build: Backrooms tests (no GLFW) ===
+for %%F in (Backrooms-master\tests\*.cpp) do (
+  set "NAME=%%~nF"
+  echo [Backrooms] %%~nxF
+  %CXX% %CXXFLAGS% %INC_COMPAT% "%%F" -o "%BIN%\backrooms-tests\!NAME!.exe" %LD_BACKROOMS% || exit /b 1
+)
+
+echo === Run: Backrooms tests ===
+for %%E in ("%BIN%\backrooms-tests"\*.exe) do (
+  echo [Backrooms] %%~nxE
+  "%%E" || exit /b 1
+)
+
+echo === OK ===
+exit /b 0
